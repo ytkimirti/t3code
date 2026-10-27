@@ -74,6 +74,11 @@ jobs:
               exit 1
             fi
             git push origin HEAD:yusuf
+            # This run's reusable packaging workflow was resolved from the
+            # pre-merge yusuf; build the merge in a fresh run instead.
+            gh workflow run fork-build.yml -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f force=true
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           sha=$(git rev-parse HEAD)
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
@@ -85,7 +90,12 @@ jobs:
           git fetch --quiet --tags origin
           last=$(gh release list -R "$GITHUB_REPOSITORY" --exclude-drafts --limit 100 \
             --json tagName --jq '.[].tagName' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)
-          if [[ -n "$last" && "$FORCE" != "true" && "$(git rev-list -n1 "refs/tags/$last" 2>/dev/null)" == "$sha" ]]; then
+          built=""
+          if [[ -n "$last" ]]; then
+            built=$(gh release view "$last" -R "$GITHUB_REPOSITORY" --json body --jq .body |
+              sed -n 's/^Commit: \([0-9a-f]\{40\}\)$/\1/p')
+          fi
+          if [[ "$FORCE" != "true" && "$built" == "$sha" ]]; then
             echo "yusuf is unchanged since $last."
             echo "build=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -162,7 +172,7 @@ jobs:
       arch: arm64
       rust_target: aarch64-apple-darwin
       resource_key: darwin-arm64
-      cli_archive: false
+      cli_archive: true
       version: ${{ needs.sync.outputs.version }}
       ref: ${{ needs.sync.outputs.sha }}
       release_channel: stable
@@ -275,8 +285,15 @@ jobs:
           name: cli-linux-x64
           path: assets
 
-      # GITHUB_TOKEN creates the tag, so upstream's tag-triggered release.yml
-      # does not fire on it.
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-mac-arm64
+          path: assets
+
+      # The tag points at this workflow's fork-ci commit, not the built yusuf
+      # commit: GITHUB_TOKEN may not create a ref on a commit that carries
+      # upstream's workflows, and no upstream workflow can fire on this tag.
+      # Readers only use the tag name and assets; "Commit:" records the build.
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -288,6 +305,7 @@ jobs:
           cd assets
           sha256sum t3-*.tar.gz *.zip > SHA256SUMS
           ls -l
-          gh release create "v$VERSION" ./* -R "$GITHUB_REPOSITORY" --target "$SHA" --latest \
+          gh release create "v$VERSION" ./* -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
             --title "T3 Code $VERSION" \
-            --notes "Upstream $UPSTREAM with the yusuf patches: https://github.com/$GITHUB_REPOSITORY/compare/$UPSTREAM...$SHA"
+            --notes "Upstream $UPSTREAM with the yusuf patches.
+          Commit: $SHA"
