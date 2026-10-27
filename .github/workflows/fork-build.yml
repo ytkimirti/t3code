@@ -92,7 +92,7 @@ jobs:
             --json tagName --jq '.[].tagName' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)
           built=""
           if [[ -n "$last" ]]; then
-            built=$(gh release view "$last" -R "$GITHUB_REPOSITORY" --json body --jq .body |
+            built=$(gh release view "$last" -R "$GITHUB_REPOSITORY" --json body --jq .body | tr -d '\r' |
               sed -n 's/^Commit: \([0-9a-f]\{40\}\)$/\1/p')
           fi
           if [[ "$FORCE" != "true" && "$built" == "$sha" ]]; then
