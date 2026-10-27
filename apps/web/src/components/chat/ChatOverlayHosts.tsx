@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   DeviceServiceState,
   EnvironmentId,
@@ -197,6 +198,9 @@ export function RevertConfirmHost(props: {
   readonly onConfirm: (turnCount: number, messageId: MessageId, restoreFiles: boolean) => void;
 }) {
   const pending = useThreadOverlay(revertConfirmAtom, props.threadKey);
+  // Keep the last request's buttons through the close animation.
+  const [shown, setShown] = useState(pending);
+  if (pending !== null && pending !== shown) setShown(pending);
   const confirm = (restoreFiles: boolean) => {
     if (pending === null) return;
     closeThreadOverlay(revertConfirmAtom);
@@ -214,12 +218,12 @@ export function RevertConfirmHost(props: {
           <AlertDialogTitle>Edit from here?</AlertDialogTitle>
           <AlertDialogDescription>
             Rewind chat to before this message. Your prompt and attachments return to the composer.
-            {pending?.chatOnly ? null : " “Revert files too” also undoes your own edits."}
+            {shown?.chatOnly ? null : " “Revert files too” also undoes your own edits."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogClose render={<Button variant="outline" />}>Cancel</AlertDialogClose>
-          {pending?.chatOnly ? null : (
+          {shown?.chatOnly ? null : (
             <Button variant="destructive-outline" onClick={() => confirm(true)}>
               Revert files too
             </Button>

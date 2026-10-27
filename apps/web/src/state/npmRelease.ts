@@ -18,12 +18,13 @@ export const npmReleasePublishedAtom = Atom.family((version: string) =>
         ? body.tag_name === `v${version}`
         : false;
     }).pipe(
-      // Tracing headers would make the browser send a CORS preflight, which npm rejects.
+      // Tracing headers would make the browser send a CORS preflight.
       Effect.provideService(HttpClient.TracerPropagationEnabled, false),
       Effect.provide(FetchHttpClient.layer),
     ),
   ).pipe(
-    Atom.withRefresh("5 minutes"),
+    // Unauthenticated GitHub API calls are limited to 60 an hour per IP.
+    Atom.withRefresh("30 minutes"),
     Atom.keepAlive,
     Atom.withLabel(`npm-release-published:${version}`),
   ),
