@@ -7,7 +7,7 @@ name: Fork build
 # satisfies the previous one's designated requirement, which Squirrel checks.
 on:
   schedule:
-    - cron: "0 0 * * *" # 03:00 Istanbul, before dev's 04:30 `t3 update`
+    - cron: "0 20 * * *" # 23:00 Istanbul, before dev's 04:30 `t3 update`
   workflow_dispatch:
     inputs:
       force:
