@@ -6,15 +6,16 @@ import { AsyncResult, Atom } from "effect/reactivity";
 export const npmReleasePublishedAtom = Atom.family((version: string) =>
   Atom.make(
     Effect.gen(function* () {
+      // Fork: servers install from the fork's GitHub releases; nothing reaches npm.
       const response = yield* HttpClient.get(
-        `https://registry.npmjs.org/t3/${encodeURIComponent(version)}`,
+        `https://api.github.com/repos/ytkimirti/t3code/releases/tags/v${encodeURIComponent(version)}`,
       );
       if (response.status === 404) return false;
       const body = yield* HttpClientResponse.filterStatusOk(response).pipe(
         Effect.flatMap((ok) => ok.json),
       );
-      return typeof body === "object" && body !== null && "version" in body
-        ? body.version === version
+      return typeof body === "object" && body !== null && "tag_name" in body
+        ? body.tag_name === `v${version}`
         : false;
     }).pipe(
       // Tracing headers would make the browser send a CORS preflight, which npm rejects.

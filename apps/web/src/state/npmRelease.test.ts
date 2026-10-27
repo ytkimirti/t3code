@@ -35,14 +35,16 @@ describe("npmReleasePublishedAtom", () => {
     vi.unstubAllGlobals();
   });
 
-  it("checks npm without tracing headers, so the browser skips the preflight npm rejects", async () => {
-    fetchMock.mockImplementation(async () => Response.json({ version }));
+  it("checks the fork release without tracing headers, so the browser skips a CORS preflight", async () => {
+    fetchMock.mockImplementation(async () => Response.json({ tag_name: `v${version}` }));
 
     const result = await settledCheck();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const request = new Request(fetchMock.mock.calls[0]?.[0] ?? "", fetchMock.mock.calls[0]?.[1]);
-    expect(request.url).toBe(`https://registry.npmjs.org/t3/${version}`);
+    expect(request.url).toBe(
+      `https://api.github.com/repos/ytkimirti/t3code/releases/tags/v${version}`,
+    );
     expect(request.headers.get("traceparent")).toBeNull();
     expect(request.headers.get("b3")).toBeNull();
     expect(AsyncResult.getOrElse(result, () => false)).toBe(true);
