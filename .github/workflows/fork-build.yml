@@ -1,0 +1,293 @@
+name: Fork build
+
+# Nightly: merge the newest upstream stable release into `yusuf`. When `yusuf`
+# moved since the last release, build it and publish a release that both the
+# desktop updater (latest-mac.yml) and `t3 update` (CLI archive + SHA256SUMS)
+# read. The mac app is signed with a self-signed identity so every build
+# satisfies the previous one's designated requirement, which Squirrel checks.
+on:
+  schedule:
+    - cron: "0 0 * * *" # 03:00 Istanbul, before dev's 04:30 `t3 update`
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even when yusuf has no new commits
+        type: boolean
+        default: false
+
+concurrency:
+  group: fork-build
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    name: Merge upstream
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      version: ${{ steps.plan.outputs.version }}
+      sha: ${{ steps.plan.outputs.sha }}
+      upstream: ${{ steps.plan.outputs.upstream }}
+    steps:
+      # Upstream's workflows come along with every merge. None of them may run
+      # here: release.yml alone would try to publish on its schedule.
+      - name: Keep upstream workflows disabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow list -R "$GITHUB_REPOSITORY" --all --json id,path,state \
+            --jq '.[] | select(.path != ".github/workflows/fork-build.yml" and .state == "active") | .id' |
+            xargs -r -n1 gh workflow disable -R "$GITHUB_REPOSITORY"
+
+      # The deploy key may push commits that touch .github/workflows, which
+      # GITHUB_TOKEN may not.
+      - name: Checkout yusuf
+        uses: actions/checkout@v4
+        with:
+          ref: yusuf
+          fetch-depth: 0
+          filter: blob:none
+          ssh-key: ${{ secrets.FORK_DEPLOY_KEY }}
+
+      - name: Merge and plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE: ${{ inputs.force && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          git config user.name "t3-fork-bot"
+          git config user.email "ytkimirti@users.noreply.github.com"
+          git remote add upstream https://github.com/pingdotgg/t3code.git
+          git fetch --quiet --filter=blob:none --no-tags upstream "+refs/tags/v*:refs/upstream-tags/v*"
+          upstream=$(git for-each-ref --format='%(refname:lstrip=2)' refs/upstream-tags |
+            grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+          if ! git merge-base --is-ancestor "refs/upstream-tags/$upstream" HEAD; then
+            if ! git merge --no-edit -m "Merge upstream $upstream" "refs/upstream-tags/$upstream"; then
+              git diff --name-only --diff-filter=U
+              echo "::error::Merging upstream $upstream into yusuf conflicts. Merge it locally and push yusuf."
+              exit 1
+            fi
+            git push origin HEAD:yusuf
+          fi
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
+
+          # Fork versions are X.Y.(Z*100+n) on upstream X.Y.Z: plain semver
+          # that sorts above upstream's own release and needs no prerelease
+          # channel in electron-updater or `t3 update`.
+          git fetch --quiet --tags origin
+          last=$(gh release list -R "$GITHUB_REPOSITORY" --exclude-drafts --limit 100 \
+            --json tagName --jq '.[].tagName' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)
+          if [[ -n "$last" && "$FORCE" != "true" && "$(git rev-list -n1 "refs/tags/$last" 2>/dev/null)" == "$sha" ]]; then
+            echo "yusuf is unchanged since $last."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          IFS=. read -r major minor patch <<< "${upstream#v}"
+          n=1
+          while git rev-parse -q --verify "refs/tags/v$major.$minor.$((patch * 100 + n))" > /dev/null; do
+            n=$((n + 1))
+          done
+          if ((n > 99)); then
+            echo "::error::No fork version left for upstream $upstream."
+            exit 1
+          fi
+          version="$major.$minor.$((patch * 100 + n))"
+          echo "Building $version from $sha (upstream $upstream)."
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build=true" >> "$GITHUB_OUTPUT"
+
+  bundle:
+    name: Build JS bundle
+    needs: sync
+    if: needs.sync.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      T3CODE_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsudDMuY29kZXMk
+      T3CODE_CLERK_JWT_TEMPLATE: t3-relay
+      T3CODE_CLERK_CLI_OAUTH_CLIENT_ID: hzxSgY2cH10sDU2r
+      T3CODE_RELAY_URL: https://relay.t3.codes
+      T3CODE_TELEMETRY_CHANNEL: dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync.outputs.sha }}
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: false
+
+      - run: vp install --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
+
+      - run: node scripts/update-release-package-versions.ts "${{ needs.sync.outputs.version }}"
+
+      - run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
+      - run: vp run build:desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: js-bundle
+          path: |
+            apps/server/dist
+            apps/desktop/dist-electron
+          if-no-files-found: error
+          retention-days: 1
+
+  # Upstream's per-platform packaging, unsigned. Resolved from yusuf when the
+  # run starts, so a merge that changes its inputs fails here first.
+  mac:
+    name: Package macOS
+    needs: [sync, bundle]
+    uses: ytkimirti/t3code/.github/workflows/release-desktop.yml@yusuf
+    with:
+      label: macOS arm64
+      runner: macos-15
+      platform: mac
+      target: dmg
+      arch: arm64
+      rust_target: aarch64-apple-darwin
+      resource_key: darwin-arm64
+      cli_archive: false
+      version: ${{ needs.sync.outputs.version }}
+      ref: ${{ needs.sync.outputs.sha }}
+      release_channel: stable
+      relay_client_tracing: false
+      clerk_publishable_key: pk_live_Y2xlcmsudDMuY29kZXMk
+      clerk_jwt_template: t3-relay
+      clerk_cli_oauth_client_id: hzxSgY2cH10sDU2r
+      relay_url: https://relay.t3.codes
+
+  linux:
+    name: Package Linux
+    needs: [sync, bundle]
+    uses: ytkimirti/t3code/.github/workflows/release-desktop.yml@yusuf
+    with:
+      label: Linux x64
+      runner: ubuntu-24.04
+      platform: linux
+      target: AppImage
+      arch: x64
+      rust_target: x86_64-unknown-linux-gnu
+      resource_key: linux-x64
+      cli_archive: true
+      version: ${{ needs.sync.outputs.version }}
+      ref: ${{ needs.sync.outputs.sha }}
+      release_channel: stable
+      relay_client_tracing: false
+      clerk_publishable_key: pk_live_Y2xlcmsudDMuY29kZXMk
+      clerk_jwt_template: t3-relay
+      clerk_cli_oauth_client_id: hzxSgY2cH10sDU2r
+      relay_url: https://relay.t3.codes
+
+  sign:
+    name: Sign macOS app
+    needs: [sync, mac]
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-mac-arm64
+          path: unsigned
+
+      - name: Sign, verify, and write the update manifest
+        env:
+          P12: ${{ secrets.FORK_SIGNING_P12 }}
+          P12_PASSWORD: ${{ secrets.FORK_SIGNING_PASSWORD }}
+          VERSION: ${{ needs.sync.outputs.version }}
+          # The identity every fork build is signed with. A new certificate
+          # breaks in-app updates once; update this hash with it.
+          REQUIREMENT: identifier "com.t3tools.t3code" and certificate leaf = H"8e10e15797a0912ac0b8e5cccb6925a518b1e833"
+        run: |
+          set -euo pipefail
+          kc="$RUNNER_TEMP/fork-signing.keychain-db"
+          kc_password=$(openssl rand -hex 16)
+          echo "::add-mask::$kc_password"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/fork-signing.p12"
+          security create-keychain -p "$kc_password" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$kc_password" "$kc"
+          security import "$RUNNER_TEMP/fork-signing.p12" -k "$kc" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$kc_password" "$kc" > /dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          # codesign refuses an untrusted identity; trust it on this runner only.
+          security find-certificate -c "T3 Code Fork Signing" -p "$kc" > "$RUNNER_TEMP/fork-signing.crt"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/fork-signing.crt"
+
+          zip=$(ls unsigned/*-arm64.zip)
+          name=$(basename "$zip")
+          mkdir -p app release
+          ditto -x -k "$zip" app
+          bundle=$(find app -maxdepth 1 -name '*.app' -print -quit)
+          codesign --force --deep --sign "T3 Code Fork Signing" --keychain "$kc" "$bundle"
+          codesign --verify --deep --strict --verbose=2 -R="$REQUIREMENT" "$bundle"
+          ditto -c -k --sequesterRsrc --keepParent "$bundle" "release/$name"
+
+          sha512=$(openssl dgst -sha512 -binary "release/$name" | base64 | tr -d '\n')
+          size=$(stat -f%z "release/$name")
+          {
+            echo "version: $VERSION"
+            echo "files:"
+            echo "  - url: $name"
+            echo "    sha512: $sha512"
+            echo "    size: $size"
+            echo "path: $name"
+            echo "sha512: $sha512"
+            echo "releaseDate: '$(date -u +%Y-%m-%dT%H:%M:%S.000Z)'"
+          } > release/latest-mac.yml
+          cat release/latest-mac.yml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-mac-signed
+          path: release/*
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish release
+    needs: [sync, sign, linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-mac-signed
+          path: assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-linux-x64
+          path: assets
+
+      # GITHUB_TOKEN creates the tag, so upstream's tag-triggered release.yml
+      # does not fire on it.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.sync.outputs.version }}
+          SHA: ${{ needs.sync.outputs.sha }}
+          UPSTREAM: ${{ needs.sync.outputs.upstream }}
+        run: |
+          set -euo pipefail
+          cd assets
+          sha256sum t3-*.tar.gz *.zip > SHA256SUMS
+          ls -l
+          gh release create "v$VERSION" ./* -R "$GITHUB_REPOSITORY" --target "$SHA" --latest \
+            --title "T3 Code $VERSION" \
+            --notes "Upstream $UPSTREAM with the yusuf patches: https://github.com/$GITHUB_REPOSITORY/compare/$UPSTREAM...$SHA"
