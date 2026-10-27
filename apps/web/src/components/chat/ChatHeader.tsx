@@ -13,12 +13,14 @@ import { ChevronDownIcon } from "lucide-react";
 import {
   memo,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { isTrailingDoubleClick } from "../Sidebar.logic";
+import { subscribeThreadRename } from "./threadRenameRequests";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { toastManager } from "../ui/toast";
 import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
@@ -165,6 +167,15 @@ export const ChatHeader = memo(function ChatHeader({
       title: activeThreadTitle,
     });
   };
+  const onRenameRequested = useEffectEvent(startRename);
+  // oxlint-disable-next-line t3code/react-effect-budget -- subscribes to an external window event bus for the thread.rename shortcut.
+  useEffect(
+    () =>
+      subscribeThreadRename(scopeThreadRef(activeThreadEnvironmentId, activeThreadId), () =>
+        onRenameRequested(),
+      ),
+    [activeThreadEnvironmentId, activeThreadId],
+  );
   const commitRename = (title: string) => {
     setRenaming(null);
     if (!readEnvironmentScope(activeThreadEnvironmentId, AuthOrchestrationOperateScope)) return;
