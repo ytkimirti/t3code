@@ -1006,7 +1006,8 @@ export function deriveRevertTurnCountByUserMessageId(input: {
 }): Map<ChatMessage["id"], number> {
   const readyTurnCountByRunId = new Map<RunId, number>();
   for (const checkpoint of input.checkpoints) {
-    if (checkpoint.status === "ready") {
+    // A missing checkpoint (e.g. outside git) still supports a chat-only rewind.
+    if (checkpoint.status === "ready" || checkpoint.status === "missing") {
       readyTurnCountByRunId.set(checkpoint.runId, checkpoint.checkpointTurnCount);
     }
   }
@@ -1057,7 +1058,7 @@ export function findRevertCheckpoint(
 ): OrchestrationV2Checkpoint | undefined {
   return checkpoints.findLast(
     (checkpoint) =>
-      checkpoint.status === "ready" &&
+      (checkpoint.status === "ready" || checkpoint.status === "missing") &&
       (turnCount === 0
         ? checkpoint.ordinalWithinScope === 0 && checkpoint.appRunOrdinal === null
         : checkpoint.appRunOrdinal === turnCount),

@@ -107,6 +107,7 @@ import {
   THREAD_HISTORY_PAGE_POLICY,
   THREAD_HISTORY_TURN_SNAPSHOT_ROW_LIMIT,
 } from "./threadHistoryPaging.ts";
+import { isUsableRollbackTarget } from "./checkpointRollbackTarget.ts";
 
 export class ProjectionStoreApplyEventError extends Schema.TaggedError<ProjectionStoreApplyEventError>()(
   "ProjectionStoreApplyEventError",
@@ -604,6 +605,7 @@ export interface ProjectionStoreV2Shape {
       readonly providerThreadId: ProviderThreadId;
       readonly checkpointId: CheckpointId;
       readonly scopeId: CheckpointScopeId;
+      readonly restoreFiles?: boolean;
     },
   ) => Effect.Effect<ProjectionCheckpointRollbackContext, ProjectionStoreV2Error>;
   readonly getRunMessage: (
@@ -5107,7 +5109,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 OR provider_thread_id IN (SELECT provider_thread_id FROM orchestration_v2_projection_subagents WHERE thread_id = ${threadId}))`,
               sql<{ readonly ordinal: number }>`SELECT ordinal_within_scope AS ordinal
             FROM orchestration_v2_projection_checkpoints
-            WHERE thread_id = ${threadId} AND scope_id = ${target.scopeId} AND status = 'ready'`,
+            WHERE thread_id = ${threadId} AND scope_id = ${target.scopeId} AND status IN ('ready', 'missing')`,
             ]);
             return {
               run,
@@ -5179,7 +5181,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
               checkpoint === undefined ||
               scope === undefined ||
               checkpoint.scopeId !== scope.id ||
-              checkpoint.status !== "ready" ||
+              !isUsableRollbackTarget(checkpoint, target.restoreFiles) ||
               providerThread.id !== thread.activeProviderThreadId ||
               providerThread.providerInstanceId !== thread.modelSelection.instanceId
             )
@@ -7400,7 +7402,9 @@ export const layerMemory: Layer.Layer<ProjectionStoreV2> = Layer.effect(
             ),
             readyCheckpointOrdinals: projection.checkpoints
               .filter(
-                (candidate) => candidate.scopeId === target.scopeId && candidate.status === "ready",
+                (candidate) =>
+                  candidate.scopeId === target.scopeId &&
+                  (candidate.status === "ready" || candidate.status === "missing"),
               )
               .map((candidate) => candidate.ordinalWithinScope),
           };
@@ -7440,7 +7444,7 @@ export const layerMemory: Layer.Layer<ProjectionStoreV2> = Layer.effect(
             checkpoint === undefined ||
             scope === undefined ||
             checkpoint.scopeId !== scope.id ||
-            checkpoint.status !== "ready" ||
+            !isUsableRollbackTarget(checkpoint, target.restoreFiles) ||
             providerThread.id !== thread.activeProviderThreadId ||
             providerThread.providerInstanceId !== thread.modelSelection.instanceId
           )

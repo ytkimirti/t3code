@@ -35,6 +35,7 @@ import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAda
 import { ProviderSessionManagerV2 } from "./ProviderSessionManager.ts";
 import { RuntimePolicyV2 } from "./RuntimePolicy.ts";
 import * as ThreadCommandExecutor from "./ThreadCommandExecutor.ts";
+import { isUsableRollbackTarget } from "./checkpointRollbackTarget.ts";
 
 export const ROLLBACK_FAILED_MESSAGE =
   "The provider could not roll back this conversation. Try again; if it keeps failing, check the provider and server logs.";
@@ -150,7 +151,7 @@ export const layer: Layer.Layer<
         checkpoint === undefined ||
         scope === undefined ||
         checkpoint.scopeId !== scope.id ||
-        checkpoint.status !== "ready"
+        !isUsableRollbackTarget(checkpoint, input.restoreFiles)
       ) {
         return yield* new CheckpointRollbackExecutionError({
           reason: "rollback-target-invalid",
