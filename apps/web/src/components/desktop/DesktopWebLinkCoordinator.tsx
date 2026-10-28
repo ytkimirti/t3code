@@ -120,6 +120,11 @@ export function DesktopWebLinkCoordinator() {
       return;
     }
     if (openChangeRequest(externalClick, url)) return;
+    // Fork: T3's browser is off, so links must not spawn scratch threads with dead tabs.
+    if (primaryEnvironment && !isPreviewAvailableFor(primaryEnvironment.environmentId)) {
+      reportFailure(url, "T3's built-in browser is turned off in this build.");
+      return;
+    }
     const isFile = url.startsWith("file:");
     const routeParams = router.state.matches.at(-1)?.params ?? {};
     const threadRef =

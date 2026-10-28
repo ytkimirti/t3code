@@ -101,14 +101,17 @@ export function ThreadDetailsPullRequestList({
                     className={`size-3 shrink-0 ${checks.toneClassName}`}
                   />
                 ) : null}
-                <Tooltip>
-                  <TooltipTrigger
-                    render={<span className="ml-auto shrink-0 whitespace-nowrap tabular-nums" />}
-                  >
-                    <RelativeTime timestamp={link.linkedAt} />
-                  </TooltipTrigger>
-                  <TooltipPopup>Linked {new Date(link.linkedAt).toLocaleString()}</TooltipPopup>
-                </Tooltip>
+                {/* Legacy single-link threads carry an epoch linkedAt. */}
+                {link.linkedAt.startsWith("1970-") ? null : (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={<span className="ml-auto shrink-0 whitespace-nowrap tabular-nums" />}
+                    >
+                      <RelativeTime timestamp={link.linkedAt} />
+                    </TooltipTrigger>
+                    <TooltipPopup>Linked {new Date(link.linkedAt).toLocaleString()}</TooltipPopup>
+                  </Tooltip>
+                )}
               </span>
             </span>
           </a>
