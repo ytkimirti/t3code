@@ -14,6 +14,7 @@ import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
 import { PULL_REQUEST_ROW_CLASS, PullRequestRowGlyph } from "../pullRequest/PullRequestListRow";
 import { pullRequestChecksStatePresentation } from "../pullRequest/pullRequestPresentation";
 import { Button } from "../ui/button";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 export function ThreadDetailsPullRequestList({
   threadRef,
@@ -59,7 +60,6 @@ export function ThreadDetailsPullRequestList({
           <a
             key={threadPullRequestKeyOf(link)}
             href={link.url}
-            title={`${link.url}\nLinked ${new Date(link.linkedAt).toLocaleString()}`}
             onClick={(event) => openPrLink(event, link.url, threadRef)}
             onAuxClick={(event) => openPrLink(event, link.url, threadRef)}
             className={`${PULL_REQUEST_ROW_CLASS} items-start px-1.5 hover:bg-accent/60`}
@@ -97,9 +97,14 @@ export function ThreadDetailsPullRequestList({
                     className={`size-3 shrink-0 ${checks.toneClassName}`}
                   />
                 ) : null}
-                <span className="ml-auto shrink-0 whitespace-nowrap tabular-nums">
-                  <RelativeTime timestamp={link.linkedAt} />
-                </span>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<span className="ml-auto shrink-0 whitespace-nowrap tabular-nums" />}
+                  >
+                    <RelativeTime timestamp={link.linkedAt} />
+                  </TooltipTrigger>
+                  <TooltipPopup>Linked {new Date(link.linkedAt).toLocaleString()}</TooltipPopup>
+                </Tooltip>
               </span>
             </span>
           </a>
