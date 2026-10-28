@@ -264,7 +264,8 @@ export const make = Effect.gen(function* () {
         ? { serverSelfUpdateProgress: true }
         : {}),
       ...(desktopAppUpdate ? { desktopAppUpdate: true } : {}),
-      serverBrowser: true,
+      // Fork: no server browser; browsing happens in Upstash Boxes via `browse`.
+      serverBrowser: false,
     },
   };
 

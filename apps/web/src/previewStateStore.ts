@@ -504,9 +504,9 @@ export function rememberPreviewUrl(ref: ScopedThreadRef, url: string): void {
   }));
 }
 
+// Fork: browsing happens in Upstash Boxes via `browse`; T3's built-in browser stays off.
 export function isPreviewSupportedInRuntime(): boolean {
-  if (typeof window === "undefined") return false;
-  return Boolean(window.desktopBridge?.preview);
+  return false;
 }
 
 /** Releases desktop-host pages as well as local session state. */

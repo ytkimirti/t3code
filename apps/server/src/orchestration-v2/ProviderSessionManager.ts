@@ -423,8 +423,9 @@ export const layerWithOptions = (
               threadId,
               Effect.gen(function* () {
                 // Live providers build MCP clients once; reuse credentials across workspace handoffs.
-                const { browser: browserToolsAvailable, device: deviceToolsAvailable } =
-                  yield* agentAccessSettings(threadId);
+                const { device: deviceToolsAvailable } = yield* agentAccessSettings(threadId);
+                // Fork: agents browse in Upstash Boxes via `browse`, never T3's browser.
+                const browserToolsAvailable = false as boolean;
                 const capabilities = new Set<
                   import("../mcp/McpInvocationContext.ts").McpCapability
                 >(["orchestration", "worktree", "pull-requests"]);
