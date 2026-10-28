@@ -7,6 +7,8 @@ import { EyeIcon, PlusIcon } from "lucide-react";
 
 import { RelativeTime } from "~/components/RelativeTime";
 import { useOpenPrLink } from "~/lib/openPullRequestLink";
+import { cn } from "~/lib/utils";
+import { useRightPanelStore } from "~/rightPanelStore";
 import { useServerConfigs, useThreadShell } from "~/state/entities";
 
 import { openLinkPullRequestDialog } from "../pullRequest/LinkPullRequestDialog";
@@ -15,6 +17,9 @@ import { PULL_REQUEST_ROW_CLASS, PullRequestRowGlyph } from "../pullRequest/Pull
 import { pullRequestChecksStatePresentation } from "../pullRequest/pullRequestPresentation";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+
+// Stack and sweep threads link hundreds; the full panel virtualizes them.
+const CARD_LIMIT = 30;
 
 export function ThreadDetailsPullRequestList({
   threadRef,
@@ -49,7 +54,7 @@ export function ThreadDetailsPullRequestList({
 
   return (
     <div data-thread-details-pr-list className="flex flex-col p-1.5">
-      {links.map((link) => {
+      {links.slice(0, CARD_LIMIT).map((link) => {
         const snapshot = link.snapshot;
         const open = snapshot === null || snapshot.state === "open";
         const checks =
@@ -61,8 +66,7 @@ export function ThreadDetailsPullRequestList({
             key={threadPullRequestKeyOf(link)}
             href={link.url}
             onClick={(event) => openPrLink(event, link.url, threadRef)}
-            onAuxClick={(event) => openPrLink(event, link.url, threadRef)}
-            className={`${PULL_REQUEST_ROW_CLASS} items-start px-1.5 hover:bg-accent/60`}
+            className={cn(PULL_REQUEST_ROW_CLASS, "items-start px-1.5 hover:bg-accent/60")}
           >
             {snapshot === null ? (
               <PullRequestGlyph.pullRequest
@@ -110,6 +114,15 @@ export function ThreadDetailsPullRequestList({
           </a>
         );
       })}
+      {links.length > CARD_LIMIT ? (
+        <Button
+          size="xs"
+          variant="ghost"
+          onClick={() => useRightPanelStore.getState().open(threadRef, "pull-requests")}
+        >
+          Show all {links.length}
+        </Button>
+      ) : null}
     </div>
   );
 }

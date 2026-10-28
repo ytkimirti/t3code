@@ -1540,7 +1540,7 @@ it.effect(
         assert.equal(resolved?.thread.threadId, threadId);
         assert.deepEqual(
           resolved?.capabilities,
-          new Set(["preview", "orchestration", "worktree", "pull-requests"]),
+          new Set(["orchestration", "worktree", "pull-requests"]),
         );
 
         yield* manager.close(providerSessionId);
