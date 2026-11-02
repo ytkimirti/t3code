@@ -11,7 +11,7 @@ import {
   deleteSelectedThreadEntries,
   getFallbackThreadIdAfterDelete,
   hasUnseenCompletion,
-  isThreadUnread,
+  threadNeedsUser,
   resolveNextUnreadThreadKey,
   resolveSidebarRowThreadId,
   orderItemsByPreferredIds,
@@ -1715,7 +1715,7 @@ describe("shouldCreateNewThreadInCurrentProject", () => {
 
 describe("thread.nextUnread", () => {
   const now = "2026-06-20T02:00:00.000Z";
-  const completed = (overrides: Record<string, unknown> = {}) =>
+  const completed = (overrides: Partial<Parameters<typeof presentThreadShell>[1]> = {}) =>
     presentThreadShell(localEnvironmentId, {
       ...makeThreadFixture().source,
       latestRunId: RunId.make("run-done"),
@@ -1726,16 +1726,16 @@ describe("thread.nextUnread", () => {
     });
 
   it("counts unseen completions but not parked, seen, or working threads", () => {
-    expect(isThreadUnread(completed(), undefined, now)).toBe(true);
+    expect(threadNeedsUser(completed(), undefined, now)).toBe(true);
     expect(
-      isThreadUnread(
+      threadNeedsUser(
         completed({ lastVisitedAt: DateTime.makeUnsafe("2026-06-20T01:30:00.000Z") }),
         undefined,
         now,
       ),
     ).toBe(false);
     expect(
-      isThreadUnread(
+      threadNeedsUser(
         completed({
           settledOverride: "settled",
           settledAt: DateTime.makeUnsafe("2026-06-20T01:10:00.000Z"),
@@ -1745,13 +1745,22 @@ describe("thread.nextUnread", () => {
       ),
     ).toBe(false);
     expect(
-      isThreadUnread(
+      threadNeedsUser(
         completed({ snoozedUntil: DateTime.makeUnsafe("2026-06-21T00:00:00.000Z") }),
         undefined,
         now,
       ),
     ).toBe(false);
-    expect(isThreadUnread(completed({ status: "running" }), undefined, now)).toBe(false);
+    expect(threadNeedsUser(completed({ status: "running" }), undefined, now)).toBe(false);
+    const readyPlan = {
+      ...completed(),
+      interactionMode: "plan" as const,
+      hasActionableProposedPlan: true,
+    };
+    expect(threadNeedsUser(readyPlan, undefined, now)).toBe(true);
+    expect(
+      threadNeedsUser({ ...readyPlan, lastVisitedAt: "2026-06-20T01:30:00.000Z" }, undefined, now),
+    ).toBe(false);
   });
 
   it("picks the next unread thread after the current one and wraps around", () => {

@@ -857,32 +857,34 @@ export function resolveAdjacentThreadId<T>(input: {
   return currentIndex < threadIds.length - 1 ? (threadIds[currentIndex + 1] ?? null) : null;
 }
 
-const UNREAD_STATUS_LABELS: ReadonlySet<ThreadStatusPill["label"]> = new Set([
+const NEEDS_USER_STATUS_LABELS: ReadonlySet<ThreadStatusPill["label"]> = new Set([
   "Pending Approval",
   "Awaiting Input",
   "Guest Request",
   "Failed",
-  "Plan Ready",
   "Completed",
 ]);
 
-/** Settled and snoozed threads are parked, so they never count as unread. */
-export function isThreadUnread(
+/**
+ * Every match must clear once handled or visited, or repeated jumps keep landing on it,
+ * so a ready plan counts only while its completion is unseen.
+ */
+export function threadNeedsUser(
   thread: ThreadStatusInput & ThreadSnoozeShell & Pick<SidebarThreadSummary, "settledOverride">,
   localLastVisitedAt: string | undefined,
   now: string,
 ): boolean {
   if (thread.settledOverride === "settled" || effectiveSnoozed(thread, { now })) return false;
-  const status = resolveThreadStatusPill({
-    thread: {
-      ...thread,
-      lastVisitedAt: resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt),
-    },
-  });
-  return status !== null && UNREAD_STATUS_LABELS.has(status.label);
+  const visitedThread = {
+    ...thread,
+    lastVisitedAt: resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt),
+  };
+  const status = resolveThreadStatusPill({ thread: visitedThread });
+  if (status === null) return false;
+  if (status.label === "Plan Ready") return hasUnseenCompletion(visitedThread);
+  return NEEDS_USER_STATUS_LABELS.has(status.label);
 }
 
-/** The first unread thread after the current one in sidebar order, wrapping around. */
 export function resolveNextUnreadThreadKey<T>(input: {
   threadKeys: readonly T[];
   currentThreadKey: T | null;

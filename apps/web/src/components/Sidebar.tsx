@@ -189,7 +189,7 @@ import {
   orderItemsByPreferredIds,
   planSidebarThreadDrop,
   reduceSidebarProjectScopeMenuState,
-  isThreadUnread,
+  threadNeedsUser,
   resolveAdjacentThreadId,
   resolveNextUnreadThreadKey,
   resolveSidebarSweepKeys,
@@ -2896,7 +2896,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           isUnread: (threadKey) => {
             const thread = candidates.get(threadKey);
             return (
-              thread !== undefined && isThreadUnread(thread, lastVisitedAtById[threadKey], now)
+              thread !== undefined && threadNeedsUser(thread, lastVisitedAtById[threadKey], now)
             );
           },
         });
