@@ -44,6 +44,7 @@ interface RightPanelActionsInput {
   readonly deviceStateLoaded: boolean;
   readonly pullRequestPanelTarget: ReturnType<typeof threadPullRequestPanelTarget> | null;
   readonly threadPanelPresentation: ThreadPanelPresentation;
+  readonly threadPanelAvailable: boolean;
   readonly isServerThread: boolean;
   /** A side chat pane; the main view already answers preview bus actions. */
   readonly embedded: boolean;
@@ -79,6 +80,7 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     deviceStateLoaded,
     pullRequestPanelTarget,
     threadPanelPresentation,
+    threadPanelAvailable,
     isServerThread,
     embedded,
     isGitRepo,
@@ -229,7 +231,7 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
   };
   const toggleRightPanelStable = useStableCallback(toggleRightPanel);
   const toggleThreadPanel = () => {
-    if (!activeThreadRef) return;
+    if (!activeThreadRef || !threadPanelAvailable) return;
     const store = useRightPanelStore.getState();
     if (threadPanelPresentation === "inline") {
       const open = selectThreadPanelOpen(
@@ -332,7 +334,7 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     "rightPanel.toggleMaximized": ({ event }) => {
       if (!event.repeat) toggleRightPanelMaximized();
     },
-    "threadPanel.toggle": () => toggleThreadPanel(),
+    "threadPanel.toggle": () => (threadPanelAvailable ? toggleThreadPanel() : false),
     "rightPanel.close": ({ event }) => {
       if (!activeRightPanelSurface) return false;
       if (!event.repeat) closeRightPanelSurface(activeRightPanelSurface);

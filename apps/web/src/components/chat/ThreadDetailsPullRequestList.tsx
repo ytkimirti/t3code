@@ -3,15 +3,14 @@ import {
   threadPullRequestKeyOf,
   visibleThreadPullRequests,
 } from "@t3tools/client-runtime/thread-pull-requests";
-import { EyeIcon, PlusIcon } from "lucide-react";
+import { EyeIcon } from "lucide-react";
 
 import { RelativeTime } from "~/components/RelativeTime";
 import { useOpenPrLink } from "~/lib/openPullRequestLink";
 import { cn } from "~/lib/utils";
 import { useRightPanelStore } from "~/rightPanelStore";
-import { useServerConfigs, useThreadShell } from "~/state/entities";
+import { useThreadShell } from "~/state/entities";
 
-import { openLinkPullRequestDialog } from "../pullRequest/LinkPullRequestDialog";
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
 import { PULL_REQUEST_ROW_CLASS, PullRequestRowGlyph } from "../pullRequest/PullRequestListRow";
 import { pullRequestChecksStatePresentation } from "../pullRequest/pullRequestPresentation";
@@ -21,36 +20,12 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 // Stack and sweep threads link hundreds; the full panel virtualizes them.
 const CARD_LIMIT = 30;
 
-export function ThreadDetailsPullRequestList({
-  threadRef,
-  canLink,
-}: {
-  threadRef: ScopedThreadRef;
-  canLink: boolean;
-}) {
-  const supported =
-    useServerConfigs().get(threadRef.environmentId)?.environment.capabilities.threadPullRequests ===
-    true;
+export function ThreadDetailsPullRequestList({ threadRef }: { threadRef: ScopedThreadRef }) {
   const thread = useThreadShell(threadRef);
   const openPrLink = useOpenPrLink(threadRef);
   const links = visibleThreadPullRequests(thread?.pullRequests ?? []).toSorted((left, right) =>
     right.linkedAt.localeCompare(left.linkedAt),
   );
-
-  if (links.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 px-4 py-5 text-center">
-        <PullRequestGlyph.link aria-hidden className="size-5 text-muted-foreground/60" />
-        <p className="text-xs text-muted-foreground">No linked pull requests</p>
-        {supported && canLink ? (
-          <Button size="xs" variant="outline" onClick={() => openLinkPullRequestDialog(threadRef)}>
-            <PlusIcon className="size-3.5" />
-            Link pull request
-          </Button>
-        ) : null}
-      </div>
-    );
-  }
 
   return (
     <div data-thread-details-pr-list className="flex flex-col p-1.5">

@@ -11,6 +11,7 @@ export function ChatCanvas({
   store,
   threadRef,
   preview,
+  detailsCardAvailable,
   composerOverlayElement,
   detailsCardTopInset = 0,
   children,
@@ -21,6 +22,7 @@ export function ChatCanvas({
   threadRef: ScopedThreadRef | null;
   /** The thread's mini player while it renders on this canvas. */
   preview: ChatCanvasPreview | null;
+  detailsCardAvailable: boolean;
   composerOverlayElement: HTMLElement | null;
   detailsCardTopInset?: number;
 }) {
@@ -68,7 +70,7 @@ export function ChatCanvas({
     return observeResize(observed, measure);
   }, [store, composerOverlayElement, timelineElement, detailsCardTopInset]);
   const detailsCardInlineOpen = useRightPanelStore((state) =>
-    threadRef === null
+    threadRef === null || !detailsCardAvailable
       ? false
       : selectThreadPanelOpen(state.threadPanelVisibilityByThreadKey, threadRef, "inline"),
   );

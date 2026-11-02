@@ -15,7 +15,7 @@ export function ThreadDetailsPanel(props: ComponentProps<typeof UpstreamThreadDe
       handle={props.handle}
       contentKey="pull-requests"
     >
-      {() => <ThreadDetailsPullRequestList threadRef={threadRef} canLink={!props.draftId} />}
+      {() => <ThreadDetailsPullRequestList threadRef={threadRef} />}
     </ThreadDetailsCard>
   );
 }
