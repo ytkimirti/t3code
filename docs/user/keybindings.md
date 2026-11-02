@@ -46,6 +46,14 @@ on macOS and Ctrl on Windows and Linux, including GNOME, KDE Plasma, Niri, and
 Hyprland. If a custom desktop shortcut takes the same keys, choose another binding
 in Settings.
 
+## Move between threads
+
+`mod+shift+[` and `mod+shift+]` open the previous and next thread in the sidebar.
+`mod+[` and `mod+]` go back and forward through the pages you visited.
+`mod+shift+u` opens the next thread that needs you: finished with unseen output,
+waiting for approval or input, a ready plan, or a failed run. Settled and snoozed
+threads are skipped. Press it again to keep working through the list.
+
 ## Copy pull request references
 
 With a PR open in the right panel or on the Pull requests page, use `mod+shift+c`

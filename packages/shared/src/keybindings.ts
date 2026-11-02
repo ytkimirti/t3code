@@ -215,6 +215,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+o", command: "editor.openFavorite" },
   { key: "mod+shift+[", command: "thread.previous" },
   { key: "mod+shift+]", command: "thread.next" },
+  { key: "mod+shift+u", command: "thread.nextUnread" },
   { key: "mod+shift+c", command: "thread.copyReference", when: "!terminalFocus" },
   { key: "f2", command: "thread.rename", when: "!terminalFocus" },
   { key: "mod+shift+s", command: "thread.settle", when: "!terminalFocus" },

@@ -11,6 +11,8 @@ import {
   deleteSelectedThreadEntries,
   getFallbackThreadIdAfterDelete,
   hasUnseenCompletion,
+  isThreadUnread,
+  resolveNextUnreadThreadKey,
   resolveSidebarRowThreadId,
   orderItemsByPreferredIds,
   pinOrderKeyBetween,
@@ -1708,5 +1710,56 @@ describe("shouldCreateNewThreadInCurrentProject", () => {
     expect(shouldCreateNewThreadInCurrentProject(false, 1, 3)).toBe(true);
     expect(shouldCreateNewThreadInCurrentProject(false, 0, 0)).toBe(true);
     expect(shouldCreateNewThreadInCurrentProject(true, 2, 2)).toBe(true);
+describe("thread.nextUnread", () => {
+  const now = "2026-06-20T02:00:00.000Z";
+  const completed = (overrides: Record<string, unknown> = {}) =>
+    presentThreadShell(localEnvironmentId, {
+      ...makeThreadFixture().source,
+      latestRunId: RunId.make("run-done"),
+      status: "completed",
+      latestRunCompletedAt: DateTime.makeUnsafe("2026-06-20T01:00:00.000Z"),
+      lastVisitedAt: DateTime.makeUnsafe("2026-06-20T00:59:00.000Z"),
+      ...overrides,
+    });
+
+  it("counts unseen completions but not parked, seen, or working threads", () => {
+    expect(isThreadUnread(completed(), undefined, now)).toBe(true);
+    expect(isThreadUnread(completed(), "2026-06-20T01:30:00.000Z", now)).toBe(false);
+    expect(
+      isThreadUnread(
+        completed({
+          settledOverride: "settled",
+          settledAt: DateTime.makeUnsafe("2026-06-20T01:10:00.000Z"),
+        }),
+        undefined,
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      isThreadUnread(
+        completed({ snoozedUntil: DateTime.makeUnsafe("2026-06-21T00:00:00.000Z") }),
+        undefined,
+        now,
+      ),
+    ).toBe(false);
+    expect(isThreadUnread(completed({ status: "running" }), undefined, now)).toBe(false);
+  });
+
+  it("picks the next unread thread after the current one and wraps around", () => {
+    const unread = new Set(["a", "c", "e"]);
+    const next = (currentThreadKey: string | null) =>
+      resolveNextUnreadThreadKey({
+        threadKeys: ["a", "b", "c", "d", "e"],
+        currentThreadKey,
+        isUnread: (key) => unread.has(key),
+      });
+    expect(next("c")).toBe("e");
+    expect(next("e")).toBe("a");
+    expect(next("b")).toBe("c");
+    expect(next(null)).toBe("a");
+    expect(next("gone")).toBe("a");
+    unread.clear();
+    unread.add("c");
+    expect(next("c")).toBeNull();
   });
 });

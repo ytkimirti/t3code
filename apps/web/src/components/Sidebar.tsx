@@ -189,7 +189,9 @@ import {
   orderItemsByPreferredIds,
   planSidebarThreadDrop,
   reduceSidebarProjectScopeMenuState,
+  isThreadUnread,
   resolveAdjacentThreadId,
+  resolveNextUnreadThreadKey,
   resolveSidebarSweepKeys,
   resolveSidebarDropTarget,
   resolveSidebarDropVerb,
@@ -2877,6 +2879,21 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             threadIds: orderedThreadKeys,
             currentThreadId: routeRowThreadKey,
             direction: traversalDirection,
+          }),
+        );
+        return;
+      }
+      if (command === "thread.nextUnread") {
+        const lastVisitedAtById = useUiStateStore.getState().threadLastVisitedAtById;
+        const now = new Date().toISOString();
+        navigateToThreadKey(
+          resolveNextUnreadThreadKey({
+            threadKeys: orderedThreadKeys,
+            currentThreadKey: routeRowThreadKey,
+            isUnread: (threadKey) => {
+              const thread = threadByKey.get(threadKey);
+              return thread !== undefined && isThreadUnread(thread, lastVisitedAtById[threadKey], now);
+            },
           }),
         );
         return;

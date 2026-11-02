@@ -857,6 +857,48 @@ export function resolveAdjacentThreadId<T>(input: {
   return currentIndex < threadIds.length - 1 ? (threadIds[currentIndex + 1] ?? null) : null;
 }
 
+const UNREAD_STATUS_LABELS: ReadonlySet<ThreadStatusPill["label"]> = new Set([
+  "Pending Approval",
+  "Awaiting Input",
+  "Guest Request",
+  "Failed",
+  "Plan Ready",
+  "Completed",
+]);
+
+/** Settled and snoozed threads are parked, so they never count as unread. */
+export function isThreadUnread(
+  thread: ThreadStatusInput & ThreadSnoozeShell & Pick<SidebarThreadSummary, "settledOverride">,
+  localLastVisitedAt: string | undefined,
+  now: string,
+): boolean {
+  if (thread.settledOverride === "settled" || effectiveSnoozed(thread, { now })) return false;
+  const status = resolveThreadStatusPill({
+    thread: {
+      ...thread,
+      lastVisitedAt: resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt),
+    },
+  });
+  return status !== null && UNREAD_STATUS_LABELS.has(status.label);
+}
+
+/** The first unread thread after the current one in sidebar order, wrapping around. */
+export function resolveNextUnreadThreadKey<T>(input: {
+  threadKeys: readonly T[];
+  currentThreadKey: T | null;
+  isUnread: (threadKey: T) => boolean;
+}): T | null {
+  const { currentThreadKey, isUnread, threadKeys } = input;
+  const currentIndex = currentThreadKey === null ? -1 : threadKeys.indexOf(currentThreadKey);
+  for (let offset = 1; offset <= threadKeys.length; offset += 1) {
+    const threadKey = threadKeys[(currentIndex + offset) % threadKeys.length];
+    if (threadKey !== undefined && threadKey !== currentThreadKey && isUnread(threadKey)) {
+      return threadKey;
+    }
+  }
+  return null;
+}
+
 export type SidebarThreadStatus =
   | "approval"
   | "input"
