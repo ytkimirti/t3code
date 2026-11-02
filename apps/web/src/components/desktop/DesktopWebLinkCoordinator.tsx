@@ -166,7 +166,10 @@ export function DesktopWebLinkCoordinator() {
 
   const openInBrowser = useEffectEvent(async (url: string) => {
     // Fork: T3's browser is off, so links must not spawn scratch threads with dead tabs.
-    if (primaryEnvironment && !isPreviewAvailableFor(primaryEnvironment.environmentId)) {
+    const browserEnvironmentId = url.startsWith("file:")
+      ? (primaryEnvironment?.environmentId ?? null)
+      : scratchEnvironmentId(primaryEnvironment?.environmentId ?? null);
+    if (browserEnvironmentId !== null && !isPreviewAvailableFor(browserEnvironmentId)) {
       reportFailure(url, "T3's built-in browser is turned off in this build.");
       return;
     }

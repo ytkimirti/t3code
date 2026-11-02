@@ -339,9 +339,18 @@ it("pairs with Local environment disabled, where there is no primary environment
   );
 });
 
+// Fork: with T3's browser off, the unheld link reports a failure instead of opening a scratch thread.
 it("does not hold a PR link for project discovery that never settles with Local environment disabled", async () => {
   setup();
   state.localEnvironmentDisabled = true;
+  const toast = vi.spyOn(toastManager, "add");
   await using _coordinator = await mount(pullRequestUrl);
-  await vi.waitFor(() => expect(state.openScratchProject).toHaveBeenCalledOnce());
+  await vi.waitFor(() =>
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: "T3's built-in browser is turned off in this build.",
+      }),
+    ),
+  );
+  expect(state.openScratchProject).not.toHaveBeenCalled();
 });
