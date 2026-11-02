@@ -2886,16 +2886,25 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       if (command === "thread.nextUnread") {
         const lastVisitedAtById = useUiStateStore.getState().threadLastVisitedAtById;
         const now = new Date().toISOString();
-        navigateToThreadKey(
-          resolveNextUnreadThreadKey({
-            threadKeys: orderedThreadKeys,
-            currentThreadKey: routeRowThreadKey,
-            isUnread: (threadKey) => {
-              const thread = threadByKey.get(threadKey);
-              return thread !== undefined && isThreadUnread(thread, lastVisitedAtById[threadKey], now);
-            },
-          }),
+        // Search every section: a collapsed Working shelf can still hold a guest request.
+        const candidates = new Map(
+          searchableThreads.map((thread) => [threadShellKey(thread), thread] as const),
         );
+        const targetKey = resolveNextUnreadThreadKey({
+          threadKeys: [...candidates.keys()],
+          currentThreadKey: routeRowThreadKey,
+          isUnread: (threadKey) => {
+            const thread = candidates.get(threadKey);
+            return (
+              thread !== undefined && isThreadUnread(thread, lastVisitedAtById[threadKey], now)
+            );
+          },
+        });
+        const target = targetKey ? candidates.get(targetKey) : undefined;
+        if (!target) return;
+        event.preventDefault();
+        event.stopPropagation();
+        navigateToThread(scopeThreadRef(target.environmentId, target.id));
         return;
       }
       const jumpIndex = threadJumpIndexFromCommand(command ?? "");
@@ -2910,6 +2919,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     orderedThreadKeys,
     routeRowThreadKey,
     routeTerminalOpen,
+    searchableThreads,
     threadByKey,
   ]);
 

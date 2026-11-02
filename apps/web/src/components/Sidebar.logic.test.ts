@@ -1710,6 +1710,9 @@ describe("shouldCreateNewThreadInCurrentProject", () => {
     expect(shouldCreateNewThreadInCurrentProject(false, 1, 3)).toBe(true);
     expect(shouldCreateNewThreadInCurrentProject(false, 0, 0)).toBe(true);
     expect(shouldCreateNewThreadInCurrentProject(true, 2, 2)).toBe(true);
+  });
+});
+
 describe("thread.nextUnread", () => {
   const now = "2026-06-20T02:00:00.000Z";
   const completed = (overrides: Record<string, unknown> = {}) =>
@@ -1724,7 +1727,13 @@ describe("thread.nextUnread", () => {
 
   it("counts unseen completions but not parked, seen, or working threads", () => {
     expect(isThreadUnread(completed(), undefined, now)).toBe(true);
-    expect(isThreadUnread(completed(), "2026-06-20T01:30:00.000Z", now)).toBe(false);
+    expect(
+      isThreadUnread(
+        completed({ lastVisitedAt: DateTime.makeUnsafe("2026-06-20T01:30:00.000Z") }),
+        undefined,
+        now,
+      ),
+    ).toBe(false);
     expect(
       isThreadUnread(
         completed({

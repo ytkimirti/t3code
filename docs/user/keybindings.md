@@ -50,9 +50,9 @@ in Settings.
 
 `mod+shift+[` and `mod+shift+]` open the previous and next thread in the sidebar.
 `mod+[` and `mod+]` go back and forward through the pages you visited.
-`mod+shift+u` opens the next thread that needs you: finished with unseen output,
-waiting for approval or input, a ready plan, or a failed run. Settled and snoozed
-threads are skipped. Press it again to keep working through the list.
+`mod+shift+u` opens the next thread that needs you, in sidebar order: unseen
+output, a pending approval or question, a guest request, a ready plan, or an unseen
+failed run. Settled and snoozed threads are skipped. Press it again to move on.
 
 ## Copy pull request references
 
