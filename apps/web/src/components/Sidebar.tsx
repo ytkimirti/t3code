@@ -515,10 +515,14 @@ function useSidebarThreads(input: {
   const visibleWorkingThreads = workingShelfExpanded
     ? workingThreads
     : routeThreadOnly(workingThreads, routeRowThreadKey);
-  const projectFolders =
+  const groupedFolders =
     folderGroups === null
       ? null
-      : groupSidebarThreadsByProject(folderGroups, activeThreads, keepEmpty).map((folder) => {
+      : groupSidebarThreadsByProject(folderGroups, activeThreads, keepEmpty);
+  const projectFolders =
+    groupedFolders === null
+      ? null
+      : groupedFolders.map((folder) => {
           const collapsed = !resolveProjectExpanded(
             projectExpandedById,
             sidebarFolderExpansionKeys(folder.group),
@@ -561,6 +565,16 @@ function useSidebarThreads(input: {
     searchableThreads: [
       ...pinnedThreads,
       ...activeThreads,
+      ...workingThreads,
+      ...snoozedThreads,
+      ...settledThreads,
+    ],
+    // Display order, including threads that collapsed shelves and folders hide.
+    nextUnreadThreads: [
+      ...pinnedThreads,
+      ...(groupedFolders === null
+        ? activeThreads
+        : groupedFolders.flatMap((folder) => folder.threads)),
       ...workingThreads,
       ...snoozedThreads,
       ...settledThreads,
@@ -1290,6 +1304,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     settledThreads,
     snoozeNow,
     searchableThreads,
+    nextUnreadThreads,
     settledVisibleCount,
     settledCount,
     olderSettledShelf,
@@ -2886,9 +2901,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       if (command === "thread.nextUnread") {
         const lastVisitedAtById = useUiStateStore.getState().threadLastVisitedAtById;
         const now = new Date().toISOString();
-        // Search every section: a collapsed Working shelf can still hold a guest request.
         const candidates = new Map(
-          searchableThreads.map((thread) => [threadShellKey(thread), thread] as const),
+          nextUnreadThreads.map((thread) => [threadShellKey(thread), thread] as const),
         );
         const targetKey = resolveNextUnreadThreadKey({
           threadKeys: [...candidates.keys()],
@@ -2919,7 +2933,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     orderedThreadKeys,
     routeRowThreadKey,
     routeTerminalOpen,
-    searchableThreads,
+    nextUnreadThreads,
     threadByKey,
   ]);
 
