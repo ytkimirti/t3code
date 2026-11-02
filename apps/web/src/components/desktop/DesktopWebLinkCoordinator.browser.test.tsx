@@ -5,6 +5,7 @@ import { AsyncResult, type Atom } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 
 import { act, render, stubGlobal } from "../../../test/render";
+import { toastManager } from "../ui/toast";
 
 const state = vi.hoisted(() => ({
   projects: [] as EnvironmentProject[],
@@ -262,15 +263,24 @@ it("opens a PR commit the workspace lacks in the thread's PR panel", async () =>
   expect(state.openLink).not.toHaveBeenCalled();
 });
 
-it("opens a plain commit the workspace lacks like any other delivered link", async () => {
+// Fork: T3's browser is off, so the link reports a failure instead of opening a scratch thread.
+it("reports a plain commit the workspace lacks instead of opening it", async () => {
   setup();
   state.routeParams = { environmentId: "local", threadId: "thread" };
   state.projects = [project];
   state.preview.mockResolvedValueOnce(AsyncResult.success({ sources: [] }));
   appAtomRegistry.set(discoverySettled, true);
+  const toast = vi.spyOn(toastManager, "add");
   const plainCommitUrl = `https://github.com/Effect-TS/effect/commit/${sha}`;
   await using _coordinator = await mount(plainCommitUrl);
-  await vi.waitFor(() => expect(state.openScratchProject).toHaveBeenCalledOnce());
+  await vi.waitFor(() =>
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: "T3's built-in browser is turned off in this build.",
+      }),
+    ),
+  );
+  expect(state.openScratchProject).not.toHaveBeenCalled();
   // Handing it to the OS browser would loop when T3 Code is the default browser.
   expect(state.openLink).not.toHaveBeenCalled();
   expect(useDiffPanelStore.getState().byThreadKey).toEqual({});

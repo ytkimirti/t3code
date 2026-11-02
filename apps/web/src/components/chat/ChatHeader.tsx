@@ -175,7 +175,7 @@ export const ChatHeader = memo(function ChatHeader({
     });
   };
   const onRenameRequested = useEffectEvent(startRename);
-  // oxlint-disable-next-line t3code/react-effect-budget -- subscribes to an external window event bus for the thread.rename shortcut.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to an external window event bus for the thread.rename shortcut.
   useEffect(
     () =>
       subscribeThreadRename(scopeThreadRef(activeThreadEnvironmentId, activeThreadId), () =>
