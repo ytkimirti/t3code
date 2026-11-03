@@ -144,7 +144,41 @@ type WhenToken =
   | { type: "lparen" }
   | { type: "rparen" };
 
+/**
+ * Fork: macOS ctrl+shift vim layer. `alongside` adds a rule to configs that already hold
+ * the default it mirrors. Listed first, so the upstream rule labels buttons; the `isMac`
+ * when keeps Settings resets on the upstream default.
+ */
+export const FORK_VIM_KEYBINDINGS: ReadonlyArray<{
+  readonly rule: KeybindingRule;
+  readonly alongside?: KeybindingRule;
+}> = [
+  { rule: { key: "ctrl+shift+o", command: "chat.scrollUp", when: "isMac && !terminalFocus" } },
+  { rule: { key: "ctrl+shift+i", command: "chat.scrollDown", when: "isMac && !terminalFocus" } },
+  {
+    rule: { key: "ctrl+shift+[", command: "navigation.back", when: "isMac && !terminalFocus" },
+    alongside: { key: "mod+[", command: "navigation.back", when: "!terminalFocus" },
+  },
+  {
+    rule: { key: "ctrl+shift+]", command: "navigation.forward", when: "isMac && !terminalFocus" },
+    alongside: { key: "mod+]", command: "navigation.forward", when: "!terminalFocus" },
+  },
+  {
+    rule: { key: "ctrl+shift+k", command: "thread.previous", when: "isMac" },
+    alongside: { key: "mod+shift+[", command: "thread.previous" },
+  },
+  {
+    rule: { key: "ctrl+shift+j", command: "thread.next", when: "isMac" },
+    alongside: { key: "mod+shift+]", command: "thread.next" },
+  },
+  {
+    rule: { key: "ctrl+shift+u", command: "thread.nextUnread", when: "isMac" },
+    alongside: { key: "mod+shift+u", command: "thread.nextUnread" },
+  },
+];
+
 export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
+  ...FORK_VIM_KEYBINDINGS.map(({ rule }) => rule),
   { key: "mod+b", command: "sidebar.toggle" },
   { key: "f6", command: "workspace.focusNext" },
   { key: "shift+f6", command: "workspace.focusPrevious" },

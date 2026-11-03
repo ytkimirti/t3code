@@ -663,6 +663,30 @@ describe("resolveShortcutCommand", () => {
     );
   });
 
+  it("runs the fork ctrl+shift vim layer on macOS only", () => {
+    const chord = (key: string, code: string) =>
+      event({ key, code, ctrlKey: true, shiftKey: true });
+    const cases: Array<[ShortcutEventLike, KeybindingCommand, KeybindingCommand | null]> = [
+      [chord("O", "KeyO"), "chat.scrollUp", "chat.new"],
+      [chord("I", "KeyI"), "chat.scrollDown", null],
+      [chord("{", "BracketLeft"), "navigation.back", "thread.previous"],
+      [chord("}", "BracketRight"), "navigation.forward", "thread.next"],
+      [chord("K", "KeyK"), "thread.previous", "pullRequest.copyNumber"],
+      [chord("J", "KeyJ"), "thread.next", "preview.toggle"],
+      [chord("U", "KeyU"), "thread.nextUnread", "thread.nextUnread"],
+    ];
+    for (const [input, mac, linux] of cases) {
+      const resolve = (platform: string) =>
+        resolveShortcutCommand(input, DEFAULT_RESOLVED_KEYBINDINGS, { platform });
+      assert.strictEqual(resolve("MacIntel"), mac, `${input.code} on macOS`);
+      assert.strictEqual(resolve("Linux x86_64"), linux, `${input.code} on Linux`);
+    }
+    assert.strictEqual(
+      shortcutLabelForCommand(DEFAULT_RESOLVED_KEYBINDINGS, "navigation.back", "MacIntel"),
+      "⌘[",
+    );
+  });
+
   it("matches punctuation shortcuts by physical key across keyboard layouts", () => {
     const keybindings = compile([
       { shortcut: modShortcut("'", { shiftKey: true }), command: "diff.toggle" },

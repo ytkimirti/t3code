@@ -289,6 +289,26 @@ describe("KeybindingsSettings.logic", () => {
     ).toEqual(["Chat: New Local", ...expected.ctrl].toSorted());
   });
 
+  it.each([
+    { platform: "Linux x86_64", conflicts: ["Chat: New"] },
+    { platform: "MacIntel", conflicts: ["Chat: Scroll Up"] },
+  ])("counts isMac rules as conflicts only on macOS ($platform)", (expected) => {
+    const rows = buildKeybindingRows(
+      compileResolvedKeybindingsConfig([
+        { command: "chat.new", key: "mod+shift+o" },
+        { command: "chat.scrollUp", key: "ctrl+shift+o", when: "isMac" },
+      ]),
+      expected.platform,
+    );
+    expect(
+      keybindingConflictLabels(
+        rows,
+        { rowId: "new", key: "ctrl+shift+o", when: "" },
+        expected.platform,
+      ),
+    ).toEqual(expected.conflicts);
+  });
+
   it("keeps mod and ctrl shortcuts apart when their when contexts differ", () => {
     const rows = buildKeybindingRows(
       compileResolvedKeybindingsConfig([

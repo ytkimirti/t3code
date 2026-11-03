@@ -184,6 +184,9 @@ export function keybindingConflictLabels(
   platform = navigator.platform,
 ): ReadonlyArray<string> {
   if (input.key.trim().length === 0) return [];
+  // Fork: rules gated on isMac (the ctrl+shift vim layer) never fire elsewhere.
+  const inert = (when: string) => !isMacPlatform(platform) && /^isMac\s*(&&|$)/.test(when);
+  if (inert(input.when)) return [];
   const shortcut = parseKeybindingShortcut(input.key);
   if (!shortcut) return [];
   // Compare resolved chords so mod+k and ctrl+k collide where mod is Ctrl.
@@ -193,7 +196,8 @@ export function keybindingConflictLabels(
     if (
       candidate.id !== input.rowId &&
       shortcutConflictKey(candidate.binding.shortcut, platform) === conflictKey &&
-      conflictsWithWhen(candidate.when, input.when)
+      conflictsWithWhen(candidate.when, input.when) &&
+      !inert(candidate.when)
     ) {
       conflicts.push(commandLabel(candidate.command));
     }

@@ -37,6 +37,7 @@ import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
 import { fromJsonStringPretty, fromLenientJson } from "@t3tools/shared/schemaJson";
 import {
   DEFAULT_KEYBINDINGS,
+  FORK_VIM_KEYBINDINGS,
   mergeWithDefaultKeybindings,
   compileResolvedKeybindingRule,
   compileResolvedKeybindingsConfig,
@@ -113,6 +114,9 @@ const LATE_DEFAULT_KEYBINDINGS: ReadonlyArray<{
       when: "composerFocus && draftThreadRoute",
     },
   },
+  ...FORK_VIM_KEYBINDINGS.flatMap(({ alongside, rule }) =>
+    alongside ? [{ id: `fork.vim:${rule.command}:${rule.key}`, alongside, rule }] : [],
+  ),
 ];
 
 function keybindingShortcutContext(rule: KeybindingRule): string | null {

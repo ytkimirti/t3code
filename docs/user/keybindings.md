@@ -55,6 +55,12 @@ output, a pending approval or question, a guest request, an unseen ready plan, o
 an unseen failed run. Settled and snoozed threads are skipped. Press it again to
 move on.
 
+On macOS, `ctrl+shift` also works as a vim-style navigation layer:
+`ctrl+shift+o` and `ctrl+shift+i` scroll the chat up and down a page (hold to keep
+scrolling), `ctrl+shift+[` and `ctrl+shift+]` go back and forward, `ctrl+shift+k`
+and `ctrl+shift+j` open the previous and next sidebar thread, and `ctrl+shift+u`
+opens the next unread thread.
+
 ## Copy pull request references
 
 With a PR open in the right panel or on the Pull requests page, use `mod+shift+c`
@@ -123,11 +129,11 @@ Join modifiers and a key with `+`, such as `mod+shift+d` or `ctrl+l`.
 
 Available context keys are `terminalFocus`, `terminalOpen`, `previewFocus`,
 `previewOpen`, `modelPickerOpen`, `usagePageOpen`, `composerFocus`, `draftThreadRoute`,
-`turnRunning`, `editableFocus`, `isWeb`, and `isDesktop`.
+`turnRunning`, `editableFocus`, `isWeb`, `isDesktop`, and `isMac`.
 `draftThreadRoute` is true on a draft thread, including a restored draft, until it is first sent.
 `editableFocus` is true while a text field, the composer, or another editor has
 the keyboard. `isWeb` is true in a browser tab. `isDesktop` is true in the
-desktop app. Unknown keys evaluate to `false`.
+desktop app. `isMac` is true on macOS. Unknown keys evaluate to `false`.
 
 `mod+1` through `mod+9` jump to the first nine threads, and to models while the
 model picker is open. The thread jumps do not run while the model picker is open.

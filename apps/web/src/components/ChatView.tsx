@@ -272,6 +272,7 @@ import {
 import type { AssistantCitationRequest } from "./chat/AssistantCitationSource";
 import { useCitedHistory } from "./chat/citationProcedure";
 import type { MessagesTimelineHistoryControls } from "./chat/MessagesTimeline";
+import { pageScrollFromShortcut } from "./chat/forkShortcutPageScroll";
 import { ThreadTimeline } from "./chat/ThreadTimeline";
 import { ProviderSubagentBar } from "./chat/ProviderSubagentBar";
 import { getTriggerDisplayModelName } from "./chat/providerIconUtils";
@@ -2730,6 +2731,16 @@ export default function ChatView(props: ChatViewProps) {
         if (!isServerThread || activeThreadRef === null || event.isComposing) return false;
         if (!event.repeat) requestThreadRename(activeThreadRef);
       },
+      "chat.scrollUp": ({ event }) =>
+        pageScrollFromShortcut(event, "PageUp", {
+          keyDown: onComposerPageScrollKeyDownStable,
+          release: onComposerPageScrollReleaseStable,
+        }),
+      "chat.scrollDown": ({ event }) =>
+        pageScrollFromShortcut(event, "PageDown", {
+          keyDown: onComposerPageScrollKeyDownStable,
+          release: onComposerPageScrollReleaseStable,
+        }),
       "chat.find": () => {
         if (!isServerThread || serverConfig?.threadFind !== true || activeThreadKey === null)
           return false;

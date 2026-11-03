@@ -274,6 +274,35 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
     }).pipe(Effect.provide(layerKeybindings())),
   );
 
+  it.effect("adds the fork ctrl+shift rules beside the defaults they mirror", () =>
+    Effect.gen(function* () {
+      const { keybindingsConfigPath } = yield* ServerConfig.ServerConfig;
+      const keybindings = yield* Keybindings.Keybindings;
+      const back = { key: "mod+[", command: "navigation.back", when: "!terminalFocus" } as const;
+      const unread = { key: "mod+shift+u", command: "thread.nextUnread" } as const;
+      yield* writeKeybindingsConfig(keybindingsConfigPath, [back, unread]);
+
+      yield* keybindings.syncDefaultKeybindingsOnStartup;
+      const persisted = yield* readKeybindingsConfig(keybindingsConfigPath);
+      assert.deepStrictEqual(
+        persisted.filter(
+          (entry) => entry.command === "navigation.back" || entry.command === "thread.nextUnread",
+        ),
+        [
+          { key: "ctrl+shift+[", command: "navigation.back", when: "isMac && !terminalFocus" },
+          { key: "ctrl+shift+u", command: "thread.nextUnread", when: "isMac" },
+          back,
+          unread,
+        ],
+      );
+      assert.isTrue(
+        persisted.some(
+          (entry) => entry.command === "chat.scrollUp" && entry.key === "ctrl+shift+o",
+        ),
+      );
+    }).pipe(Effect.provide(layerKeybindings())),
+  );
+
   it.effect("leaves a customized command without the late default", () =>
     Effect.gen(function* () {
       const { keybindingsConfigPath } = yield* ServerConfig.ServerConfig;
