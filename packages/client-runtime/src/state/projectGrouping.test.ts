@@ -398,10 +398,13 @@ describe("project pins and archives", () => {
     const pickable = pickableProjectGroups([
       { key: "a", pinned: false, archived: false },
       { key: "b", pinned: true, archived: true },
-      { key: "c", pinned: true, archived: false },
+      { key: "c", pinned: true, pinnedAt: "2026-03-01T00:00:00.000Z", archived: false },
       { key: "d", pinned: false, archived: true },
+      { key: "e", pinned: true, pinnedAt: null, archived: false },
+      { key: "f", pinned: true, pinnedAt: "2026-01-01T00:00:00.000Z", archived: false },
     ]);
-    expect(pickable.map((entry) => entry.key)).toEqual(["c", "a"]);
+    // Pinned groups keep their pin order, whatever order activity sorted them in.
+    expect(pickable.map((entry) => entry.key)).toEqual(["f", "c", "e", "a"]);
   });
 });
 

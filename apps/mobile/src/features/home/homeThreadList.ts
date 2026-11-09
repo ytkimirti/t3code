@@ -28,6 +28,7 @@ export interface HomeProjectScope {
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly projectRefs: ReadonlyArray<ScopedProjectRef>;
   readonly pinned: boolean;
+  readonly pinnedAt: string | null;
   readonly archived: boolean;
 }
 
@@ -65,6 +66,7 @@ export function buildHomeProjectScopes(input: {
       projects: group.members.map((member) => member.project),
       projectRefs: group.memberProjectRefs,
       pinned: group.pinned,
+      pinnedAt: group.pinnedAt,
       archived: group.archived,
     };
   });

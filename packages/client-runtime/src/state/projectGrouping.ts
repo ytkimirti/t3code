@@ -244,15 +244,35 @@ export interface ProjectGroup<TProject extends EnvironmentProject = EnvironmentP
   readonly memberProjectRefs: ReadonlyArray<ScopedProjectRef>;
   /** Clients write every member together. When members still disagree, the project stays visible. */
   readonly pinned: boolean;
+  /** Earliest pin among members, so pinned groups keep the order they were pinned in. */
+  readonly pinnedAt: string | null;
   readonly archived: boolean;
 }
 
-/** The groups a project picker offers: archived groups left out, pinned ones first. */
+/**
+ * The groups a project picker offers: archived groups left out, pinned ones first in the
+ * order they were pinned, so activity never moves a pinned project or its number shortcut.
+ */
 export function pickableProjectGroups<
-  TGroup extends { readonly pinned: boolean; readonly archived: boolean },
+  TGroup extends {
+    readonly pinned: boolean;
+    readonly pinnedAt?: string | null | undefined;
+    readonly archived: boolean;
+  },
 >(groups: ReadonlyArray<TGroup>): TGroup[] {
   const open = groups.filter((group) => !group.archived);
-  return [...open.filter((group) => group.pinned), ...open.filter((group) => !group.pinned)];
+  const pinTime = (group: TGroup) => {
+    const time = group.pinnedAt ? Date.parse(group.pinnedAt) : Number.NaN;
+    return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
+  };
+  const pinned = open
+    .filter((group) => group.pinned)
+    .map((group, index) => ({ group, index, time: pinTime(group) }))
+    .sort((left, right) =>
+      left.time === right.time ? left.index - right.index : left.time < right.time ? -1 : 1,
+    )
+    .map(({ group }) => group);
+  return [...pinned, ...open.filter((group) => !group.pinned)];
 }
 
 function projectFreshnessTime(project: EnvironmentProject): number {
@@ -375,6 +395,13 @@ export function buildProjectGroups<TProject extends EnvironmentProject>(input: {
       members,
       memberProjectRefs: projectRefsByLogicalKey.get(key) ?? [],
       pinned: members.some((member) => member.project.pinnedAt != null),
+      pinnedAt: members.reduce<string | null>((earliest, member) => {
+        const pinnedAt = member.project.pinnedAt ?? null;
+        return pinnedAt !== null &&
+          (earliest === null || Date.parse(pinnedAt) < Date.parse(earliest))
+          ? pinnedAt
+          : earliest;
+      }, null),
       archived: members.every((member) => member.project.archivedAt != null),
     };
   });

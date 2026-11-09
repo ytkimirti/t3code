@@ -201,6 +201,7 @@ export function buildSidebarProjectSnapshots(input: {
       memberProjectRefs: group.memberProjectRefs,
       remoteEnvironmentLabels,
       pinned: group.pinned,
+      pinnedAt: group.pinnedAt,
       archived: group.archived,
     };
   });
