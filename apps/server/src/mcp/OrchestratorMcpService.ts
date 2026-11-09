@@ -1890,6 +1890,20 @@ const make = Effect.gen(function* () {
   )(function* (boundToThread: boolean, projectId: ProjectId) {
     if (boundToThread) return { type: "root" as const };
     const { workspaceRoot } = yield* requireProject(projectId);
+    // A worktree needs a Git repository; plain folders run in the project root.
+    const isRepository = yield* gitDriver
+      .execute({
+        operation: "OrchestratorMcpService.scheduledTaskWorkspaceStrategy",
+        cwd: workspaceRoot,
+        args: ["rev-parse", "--is-inside-work-tree"],
+        allowNonZeroExit: true,
+        timeoutMs: 5_000,
+      })
+      .pipe(
+        Effect.map((result) => result.exitCode === 0 && result.stdout.trim() === "true"),
+        Effect.orElseSucceed(() => false),
+      );
+    if (!isRepository) return { type: "root" as const };
     return {
       type: "worktree" as const,
       baseRef: yield* resolveScheduledTaskBaseRef(workspaceRoot),

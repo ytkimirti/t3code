@@ -2811,6 +2811,7 @@ describe("OrchestratorMcpService provider resolution", () => {
         ),
       );
     const masterRepository: Partial<GitVcsDriver.GitVcsDriver["Service"]> = {
+      execute: () => Effect.succeed({ exitCode: 0, stdout: "true\n" } as never),
       resolvePrimaryRemoteName: () => Effect.succeed("origin"),
       resolveDefaultBranchName: (cwd, remoteName) =>
         Effect.succeed(cwd === workspaceRoot && remoteName === "origin" ? "master" : null),
@@ -2828,6 +2829,29 @@ describe("OrchestratorMcpService provider resolution", () => {
         assert.deepEqual(yield* Ref.get(saved), [
           { type: "worktree", baseRef: "origin/master", startFromOrigin: true },
         ]);
+      }),
+    );
+
+    it.effect("runs in the project root when the project is not a Git repository", () =>
+      Effect.gen(function* () {
+        const saved = yield* Ref.make<ReadonlyArray<ScheduledTask["workspaceStrategy"]>>([]);
+        const mcp = yield* OrchestratorMcpService.OrchestratorMcpService.pipe(
+          Effect.provide(
+            service(
+              {
+                ...masterRepository,
+                execute: () => Effect.succeed({ exitCode: 128, stdout: "" } as never),
+              },
+              saved,
+            ),
+          ),
+        );
+        yield* mcp.scheduleTask(client, { projectId, prompt: "Check the build", schedule });
+        yield* mcp.updateScheduledTask(client, {
+          scheduledTaskId: existing.id,
+          bindToCurrentThread: false,
+        });
+        assert.deepEqual(yield* Ref.get(saved), [{ type: "root" }, { type: "root" }]);
       }),
     );
 
@@ -2927,6 +2951,7 @@ describe("OrchestratorMcpService provider resolution", () => {
           Effect.provide(
             service(
               {
+                execute: () => Effect.succeed({ exitCode: 0, stdout: "true\n" } as never),
                 resolvePrimaryRemoteName: (cwd) =>
                   remote === null
                     ? Effect.fail(gitFailure(cwd, "No git remote is configured."))
