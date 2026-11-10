@@ -35,6 +35,7 @@ const WakeScriptEntry = Schema.Struct({
   id: Schema.String,
   threadId: Schema.String,
   snoozedUntilMs: Schema.Number,
+  snoozedAtMs: Schema.Number,
   script: Schema.String,
   everyMs: Schema.Number,
   message: Schema.NullOr(Schema.String),
@@ -47,7 +48,10 @@ const WakeScriptFile = Schema.fromJsonString(Schema.Array(WakeScriptEntry));
 const decodeFile = Schema.decodeUnknownEffect(WakeScriptFile);
 const encodeFile = Schema.encodeEffect(WakeScriptFile);
 
-type ShellSnooze = Pick<OrchestrationV2ThreadShell, "snoozedUntil" | "archivedAt" | "deletedAt">;
+type ShellSnooze = Pick<
+  OrchestrationV2ThreadShell,
+  "snoozedUntil" | "snoozedAt" | "archivedAt" | "deletedAt"
+>;
 
 /** Whether the entry still belongs to the thread's current snooze. */
 export function entryIsLive(
@@ -56,9 +60,13 @@ export function entryIsLive(
   nowMs: number,
 ): boolean {
   if (shell === null || shell.deletedAt !== null || shell.archivedAt !== null) return false;
-  if (shell.snoozedUntil == null) return false;
+  if (shell.snoozedUntil == null || shell.snoozedAt == null) return false;
   const snoozedUntilMs = DateTime.toEpochMillis(shell.snoozedUntil);
-  return snoozedUntilMs === entry.snoozedUntilMs && snoozedUntilMs > nowMs;
+  return (
+    snoozedUntilMs === entry.snoozedUntilMs &&
+    DateTime.toEpochMillis(shell.snoozedAt) === entry.snoozedAtMs &&
+    snoozedUntilMs > nowMs
+  );
 }
 
 export type ScriptOutcome =
@@ -113,7 +121,7 @@ export function decideAfterRun(
 }
 
 export interface ArmInput {
-  /** Unique per arm; wake commands derive their ids from it so a later snooze can wake again. */
+  /** Unique per arm; wake command ids derive from it. */
   readonly id: string;
   readonly threadId: ThreadId;
   readonly snoozedUntilMs: number;
@@ -215,31 +223,40 @@ export const layer = Layer.effect(
     ) {
       const threadId = ThreadId.make(entry.threadId);
       const key = `wake-script:${entry.id}`;
+      // A sent message ends the snooze too, so it goes first: a crash between the two
+      // still leaves the next sweep a live entry to retry with the same ids.
+      if (text !== null) {
+        yield* threads.sendToThread({
+          projectId: shell.projectId,
+          commandId: CommandId.make(`${key}:message`),
+          threadId,
+          messageId: MessageId.make(`${key}:message`),
+          text,
+          attachments: [],
+          mode: "queue",
+          createdBy: "user",
+          creationSource: "server",
+        });
+      }
       yield* threads.dispatch({
         type: "thread.unsnooze",
         commandId: CommandId.make(key),
         threadId,
         reason: "user",
       });
-      if (text === null) return;
-      yield* threads.sendToThread({
-        projectId: shell.projectId,
-        commandId: CommandId.make(`${key}:message`),
-        threadId,
-        messageId: MessageId.make(`${key}:message`),
-        text,
-        attachments: [],
-        mode: "queue",
-        createdBy: "user",
-        creationSource: "server",
-      });
     });
 
+    /** None when the read failed, so a transient error skips a round instead of disarming. */
     const readShell = (threadId: string) =>
-      threads.getThreadShell(ThreadId.make(threadId)).pipe(Effect.orElseSucceed(() => null));
+      threads.getThreadShell(ThreadId.make(threadId)).pipe(
+        Effect.asSome,
+        Effect.orElseSucceed(() => Option.none<OrchestrationV2ThreadShell | null>()),
+      );
 
     const check = Effect.fn("SnoozeWakeScripts.check")(function* (entry: WakeScriptEntry) {
-      const shell = yield* readShell(entry.threadId);
+      const read = yield* readShell(entry.threadId);
+      if (Option.isNone(read)) return;
+      const shell = read.value;
       if (shell === null || !entryIsLive(entry, shell, yield* Clock.currentTimeMillis)) {
         return yield* drop(entry.id);
       }
@@ -251,7 +268,9 @@ export const layer = Layer.effect(
       if (decision.type === "sleep") {
         return yield* update((all) => all.map((e) => (e.id === entry.id ? decision.entry : e)));
       }
-      const after = yield* readShell(entry.threadId);
+      const reread = yield* readShell(entry.threadId);
+      if (Option.isNone(reread)) return;
+      const after = reread.value;
       if (after === null || !entryIsLive(entry, after, nowMs)) return yield* drop(entry.id);
       yield* wake(after, entry, decision.text);
       yield* drop(entry.id);
@@ -286,18 +305,24 @@ export const layer = Layer.effect(
       threadId: ThreadId,
       script: string,
     ) {
-      const shell = yield* threads.getThreadShell(threadId).pipe(Effect.orElseSucceed(() => null));
+      const shell = Option.getOrNull(yield* readShell(threadId));
       return yield* runScript(script, shell === null ? undefined : yield* cwdFor(shell));
     });
 
     const arm = Effect.fn("SnoozeWakeScripts.arm")(function* (input: ArmInput) {
       const nowMs = yield* Clock.currentTimeMillis;
+      // Ties the entry to this exact snooze; a later one, even to the same time, has a new snoozedAt.
+      const shell = Option.getOrNull(yield* readShell(input.threadId));
+      if (shell?.snoozedUntil == null || shell.snoozedAt == null) return;
+      if (DateTime.toEpochMillis(shell.snoozedUntil) !== input.snoozedUntilMs) return;
+      const snoozedAtMs = DateTime.toEpochMillis(shell.snoozedAt);
       yield* update((all) => [
         ...all.filter((e) => e.threadId !== input.threadId),
         {
           id: input.id,
           threadId: input.threadId,
           snoozedUntilMs: input.snoozedUntilMs,
+          snoozedAtMs,
           script: input.script,
           everyMs: input.everyMs,
           message: input.message,

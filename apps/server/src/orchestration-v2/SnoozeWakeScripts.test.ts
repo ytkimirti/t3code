@@ -32,6 +32,7 @@ const entry = (overrides: Partial<WakeScriptEntry> = {}): WakeScriptEntry => ({
   id: "arm-1",
   threadId: "thread-1",
   snoozedUntilMs: WAKE,
+  snoozedAtMs: NOW,
   script: "exit 1",
   everyMs: 300_000,
   message: null,
@@ -40,8 +41,12 @@ const entry = (overrides: Partial<WakeScriptEntry> = {}): WakeScriptEntry => ({
   ...overrides,
 });
 
-const shell = (snoozedUntilMs: number | null, overrides: { archived?: boolean } = {}) => ({
+const shell = (
+  snoozedUntilMs: number | null,
+  overrides: { archived?: boolean; snoozedAtMs?: number } = {},
+) => ({
   snoozedUntil: snoozedUntilMs === null ? null : DateTime.makeUnsafe(snoozedUntilMs),
+  snoozedAt: snoozedUntilMs === null ? null : DateTime.makeUnsafe(overrides.snoozedAtMs ?? NOW),
   archivedAt: overrides.archived === true ? DateTime.makeUnsafe(NOW) : null,
   deletedAt: null,
 });
@@ -51,6 +56,8 @@ describe("entryIsLive", () => {
     expect(entryIsLive(entry(), shell(WAKE), NOW)).toBe(true);
     expect(entryIsLive(entry(), shell(null), NOW)).toBe(false);
     expect(entryIsLive(entry(), shell(WAKE + 60_000), NOW)).toBe(false);
+    // Snoozed again to the same time, from the UI or another arm.
+    expect(entryIsLive(entry(), shell(WAKE, { snoozedAtMs: NOW + 1 }), NOW)).toBe(false);
     expect(entryIsLive(entry(), shell(WAKE, { archived: true }), NOW)).toBe(false);
     expect(entryIsLive(entry(), null, NOW)).toBe(false);
   });
