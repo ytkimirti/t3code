@@ -8,11 +8,13 @@ import {
   type OrchestrationV2Command,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { modelSelectionCommandType } from "@t3tools/shared/model";
 
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import {
+  assertFullAccess,
   dispatchFailure,
   newCommandId,
   readCaller,
@@ -21,6 +23,7 @@ import {
 } from "../../threadAccess.ts";
 import * as ThreadSearch from "../../../orchestration-v2/ThreadSearch.ts";
 import * as ScheduledTasks from "../../../scheduledTasks/ScheduledTaskService.ts";
+import * as SnoozeWakeScripts from "../../../orchestration-v2/SnoozeWakeScripts.ts";
 import { queuedRunsInDeliveryOrder } from "../../../orchestration-v2/QueuedRunOrder.ts";
 import { ThreadToolkit } from "./tools.ts";
 
@@ -334,14 +337,30 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
   ),
   t3_thread_organize: writesThread((input) =>
     Effect.gen(function* () {
-      const { threads, projection, caller } = yield* readThread(input.threadId);
+      const context = yield* readThread(input.threadId);
+      const { threads, projection, caller } = context;
       const common = { commandId: yield* newCommandId(), threadId: projection.thread.id };
+      const wakeScripts = Option.getOrNull(
+        yield* Effect.serviceOption(SnoozeWakeScripts.SnoozeWakeScripts),
+      );
+      const wakeProblem =
+        input.wakeScript === undefined
+          ? input.wakeMessage !== undefined || input.wakeCheckMinutes !== undefined
+            ? "wakeMessage and wakeCheckMinutes need wakeScript."
+            : null
+          : input.action !== "snooze"
+            ? "wakeScript only goes with snooze."
+            : null;
+      if (wakeProblem !== null) {
+        return yield* new OrchestratorMcpFailure({ code: "invalid_request", message: wakeProblem });
+      }
       if (input.action === "settle") {
         return yield* threads
           .settleThread({ ...common, byOwnAgent: caller?.id === projection.thread.id })
           .pipe(Effect.mapError(dispatchFailure));
       }
       let command: OrchestrationV2Command;
+      let wake: SnoozeWakeScripts.ArmInput | null = null;
       switch (input.action) {
         case "snooze":
           if (input.snoozedUntil === undefined) {
@@ -349,6 +368,39 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
               code: "invalid_request",
               message: "snooze requires snoozedUntil.",
             });
+          }
+          if (input.wakeScript !== undefined) {
+            if (wakeScripts === null) {
+              return yield* new OrchestratorMcpFailure({
+                code: "invalid_request",
+                message: "Wake scripts are not available on this server.",
+              });
+            }
+            yield* assertFullAccess(
+              context,
+              "A wake script runs shell commands, so it needs a full-access/default calling thread or a full-access client.",
+            );
+            const outcome = yield* wakeScripts.probe(projection.thread.id, input.wakeScript);
+            if (outcome.type !== "exited" || outcome.code !== 1) {
+              return yield* new OrchestratorMcpFailure({
+                code: "invalid_request",
+                message:
+                  outcome.type === "exited" && outcome.code === 0
+                    ? "The wake script already exits 0, so the thread would wake at once. Not snoozed."
+                    : `The wake script failed its first run, so the thread was not snoozed: ${
+                        outcome.type === "error"
+                          ? outcome.detail
+                          : `exit ${outcome.code}. ${outcome.stderr.trim().slice(0, 2000)}`
+                      }`,
+              });
+            }
+            wake = {
+              threadId: projection.thread.id,
+              snoozedUntil: input.snoozedUntil,
+              script: input.wakeScript,
+              everyMs: (input.wakeCheckMinutes ?? 5) * 60_000,
+              message: input.wakeMessage ?? null,
+            };
           }
           command = { ...common, type: "thread.snooze", snoozedUntil: input.snoozedUntil };
           break;
@@ -363,6 +415,12 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
           command = { ...common, type: `thread.${input.action}` };
       }
       const result = yield* threads.dispatch(command).pipe(Effect.mapError(dispatchFailure));
+      if (wakeScripts === null) return { sequence: result.sequence };
+      if (wake !== null) {
+        yield* wakeScripts.arm(wake);
+      } else if (input.action === "snooze" || input.action === "unsnooze") {
+        yield* wakeScripts.disarm(projection.thread.id);
+      }
       return { sequence: result.sequence };
     }),
   ),

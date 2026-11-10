@@ -31,7 +31,7 @@ import * as McpInvocationContext from "../../McpInvocationContext.ts";
 
 const ThreadOrganizeTool = Tool.make("t3_thread_organize", {
   description:
-    "Pin, snooze, settle, archive, or mark a thread unread. Omit `threadId` for this thread. `snooze` needs `snoozedUntil`. Settling this thread applies at turn end. A failed turn or queued message leaves it active.",
+    "Pin, snooze, settle, archive, or mark a thread unread. Omit `threadId` for this thread. `snooze` needs `snoozedUntil`. Settling this thread applies at turn end. A failed turn or queued message leaves it active. To wake a snooze early when something happens (a reply, a merge, a deploy), add `wakeScript`: bash run in the thread's folder every `wakeCheckMinutes` (default 5) with no agent turn. Exit 0 wakes the thread, exit 1 keeps it asleep, anything else is a failure, and 3 in a row wake it. It runs once now and must exit 1. `wakeMessage` is sent to the thread's agent on wake, with the script's stdout appended; omit it to only wake the thread.",
   parameters: Schema.Struct({
     environmentId: OrchestratorMcpEnvironmentTarget,
     threadId: Schema.optional(ThreadId),
@@ -47,6 +47,11 @@ const ThreadOrganizeTool = Tool.make("t3_thread_organize", {
       "mark_unread",
     ]),
     snoozedUntil: Schema.optional(IsoDateTime),
+    wakeScript: Schema.optional(TrimmedNonEmptyString),
+    wakeCheckMinutes: Schema.optional(
+      Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1440 })),
+    ),
+    wakeMessage: Schema.optional(TrimmedNonEmptyString),
   }),
   success: Schema.Union([
     OrchestrationV2DispatchCommandResult,

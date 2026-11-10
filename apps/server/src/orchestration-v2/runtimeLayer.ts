@@ -1,5 +1,7 @@
 import * as GuestShareService from "../guest/GuestShareService.ts";
 import * as UsageLimitRecoveryWorker from "./UsageLimitRecoveryWorker.ts";
+import * as SnoozeWakeScripts from "./SnoozeWakeScripts.ts";
+import * as ProcessRunner from "../processRunner.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as Layer from "effect/Layer";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
@@ -388,6 +390,11 @@ export const layerProduction = Layer.mergeAll(
     ),
   ),
   layerProviderContinuationWorkerProvided,
+  SnoozeWakeScripts.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(layerThreadManagementProvided, layerProjectService, ProcessRunner.layer),
+    ),
+  ),
   layerAgentSessionImporterProvided,
   EffectOutbox.layerPruneWorker.pipe(Layer.provide(EffectOutbox.layer)),
 ).pipe(
