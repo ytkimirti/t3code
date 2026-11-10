@@ -29,6 +29,7 @@ const NOW = Date.parse("2026-11-10T12:00:00.000Z");
 const WAKE = Date.parse("2026-11-17T09:00:00.000Z");
 
 const entry = (overrides: Partial<WakeScriptEntry> = {}): WakeScriptEntry => ({
+  id: "arm-1",
   threadId: "thread-1",
   snoozedUntilMs: WAKE,
   script: "exit 1",
@@ -129,7 +130,6 @@ it.effect("an armed script survives a restart and wakes the thread once it exits
           ServerConfig.layerTest(process.cwd(), baseDir),
         ),
       ),
-      Layer.provide(NodeServices.layer),
       Layer.fresh,
     );
 
@@ -142,8 +142,9 @@ it.effect("an armed script survives a restart and wakes the thread once it exits
       stderr: "",
     });
     yield* first.arm({
+      id: "arm-1",
       threadId,
-      snoozedUntil: new Date(WAKE).toISOString(),
+      snoozedUntilMs: WAKE,
       script: "test -f reply && cat reply",
       everyMs: 60_000,
       message: "Read the reply.",

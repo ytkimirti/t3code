@@ -9,6 +9,8 @@ import {
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Clock from "effect/Clock";
+import * as DateTime from "effect/DateTime";
 import { modelSelectionCommandType } from "@t3tools/shared/model";
 
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
@@ -380,6 +382,14 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
               context,
               "A wake script runs shell commands, so it needs a full-access/default calling thread or a full-access client.",
             );
+            // Parse as the orchestrator does, so the stored time matches the snooze it records.
+            const wakeAt = Option.map(DateTime.make(input.snoozedUntil), DateTime.toEpochMillis);
+            if (Option.isNone(wakeAt) || wakeAt.value <= (yield* Clock.currentTimeMillis)) {
+              return yield* new OrchestratorMcpFailure({
+                code: "invalid_request",
+                message: "snoozedUntil must be a valid future time.",
+              });
+            }
             const outcome = yield* wakeScripts.probe(projection.thread.id, input.wakeScript);
             if (outcome.type !== "exited" || outcome.code !== 1) {
               return yield* new OrchestratorMcpFailure({
@@ -395,8 +405,9 @@ export const layer = McpToolAccess.toLayer(ThreadToolkit, {
               });
             }
             wake = {
+              id: common.commandId,
               threadId: projection.thread.id,
-              snoozedUntil: input.snoozedUntil,
+              snoozedUntilMs: wakeAt.value,
               script: input.wakeScript,
               everyMs: (input.wakeCheckMinutes ?? 5) * 60_000,
               message: input.wakeMessage ?? null,

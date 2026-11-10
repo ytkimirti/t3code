@@ -28,9 +28,11 @@ import * as ThreadManagement from "./ThreadManagementService.ts";
 export const MAX_FAILURES = 3;
 const SWEEP_EVERY = "15 seconds";
 const SCRIPT_TIMEOUT = "2 minutes";
+const MAX_CONCURRENT_CHECKS = 4;
 const MAX_OUTPUT_CHARS = 4000;
 
 const WakeScriptEntry = Schema.Struct({
+  id: Schema.String,
   threadId: Schema.String,
   snoozedUntilMs: Schema.Number,
   script: Schema.String,
@@ -111,8 +113,10 @@ export function decideAfterRun(
 }
 
 export interface ArmInput {
+  /** Unique per arm; wake commands derive their ids from it so a later snooze can wake again. */
+  readonly id: string;
   readonly threadId: ThreadId;
-  readonly snoozedUntil: string;
+  readonly snoozedUntilMs: number;
   readonly script: string;
   readonly everyMs: number;
   readonly message: string | null;
@@ -139,6 +143,7 @@ export const layer = Layer.effect(
     const runner = yield* ProcessRunner.ProcessRunner;
     const filePath = path.join(stateDir, "snooze-wake-scripts.json");
     const lock = yield* Semaphore.make(1);
+    const slots = yield* Semaphore.make(MAX_CONCURRENT_CHECKS);
 
     const initial = yield* fs.readFileString(filePath).pipe(
       Effect.flatMap(decodeFile),
@@ -162,7 +167,9 @@ export const layer = Layer.effect(
     const update = (f: (all: ReadonlyArray<WakeScriptEntry>) => ReadonlyArray<WakeScriptEntry>) =>
       lock.withPermits(1)(Ref.update(entries, f).pipe(Effect.andThen(persist)));
 
-    const drop = (threadId: string) => update((all) => all.filter((e) => e.threadId !== threadId));
+    const disarm = (threadId: string) =>
+      update((all) => all.filter((e) => e.threadId !== threadId));
+    const drop = (id: string) => update((all) => all.filter((e) => e.id !== id));
 
     const cwdFor = Effect.fn("SnoozeWakeScripts.cwdFor")(function* (
       shell: OrchestrationV2ThreadShell,
@@ -178,7 +185,7 @@ export const layer = Layer.effect(
       runner
         .run({
           command: "bash",
-          args: ["-lc", script],
+          args: ["-c", script],
           cwd,
           timeout: SCRIPT_TIMEOUT,
           maxOutputBytes: 64 * 1024,
@@ -207,7 +214,7 @@ export const layer = Layer.effect(
       text: string | null,
     ) {
       const threadId = ThreadId.make(entry.threadId);
-      const key = `wake-script:${entry.threadId}:${entry.snoozedUntilMs}`;
+      const key = `wake-script:${entry.id}`;
       yield* threads.dispatch({
         type: "thread.unsnooze",
         commandId: CommandId.make(key),
@@ -228,44 +235,47 @@ export const layer = Layer.effect(
       });
     });
 
+    const readShell = (threadId: string) =>
+      threads.getThreadShell(ThreadId.make(threadId)).pipe(Effect.orElseSucceed(() => null));
+
     const check = Effect.fn("SnoozeWakeScripts.check")(function* (entry: WakeScriptEntry) {
-      const shell = yield* threads
-        .getThreadShell(ThreadId.make(entry.threadId))
-        .pipe(Effect.orElseSucceed(() => null));
+      const shell = yield* readShell(entry.threadId);
       if (shell === null || !entryIsLive(entry, shell, yield* Clock.currentTimeMillis)) {
-        return yield* drop(entry.threadId);
+        return yield* drop(entry.id);
       }
       const outcome = yield* runScript(entry.script, yield* cwdFor(shell));
-      const decision = decideAfterRun(entry, outcome, yield* Clock.currentTimeMillis);
-      // The snooze may have changed while the script ran; act only on the one it was armed for.
-      const current = (yield* Ref.get(entries)).find((e) => e.threadId === entry.threadId);
-      if (current?.snoozedUntilMs !== entry.snoozedUntilMs) return;
+      const nowMs = yield* Clock.currentTimeMillis;
+      const decision = decideAfterRun(entry, outcome, nowMs);
+      // A re-arm or disarm during the run replaced this entry; its result no longer applies.
+      if (!(yield* Ref.get(entries)).some((e) => e.id === entry.id)) return;
       if (decision.type === "sleep") {
-        return yield* update((all) =>
-          all.map((e) => (e.threadId === entry.threadId ? decision.entry : e)),
-        );
+        return yield* update((all) => all.map((e) => (e.id === entry.id ? decision.entry : e)));
       }
-      yield* drop(entry.threadId);
-      yield* wake(shell, entry, decision.text);
+      const after = yield* readShell(entry.threadId);
+      if (after === null || !entryIsLive(entry, after, nowMs)) return yield* drop(entry.id);
+      yield* wake(after, entry, decision.text);
+      yield* drop(entry.id);
     });
 
     const sweep = Effect.gen(function* () {
       const nowMs = yield* Clock.currentTimeMillis;
       const due = (yield* Ref.get(entries)).filter(
-        (e) => e.nextCheckAtMs <= nowMs && !running.has(e.threadId),
+        (e) => e.nextCheckAtMs <= nowMs && !running.has(e.id),
       );
       for (const entry of due) {
-        running.add(entry.threadId);
+        running.add(entry.id);
         yield* forkParked(
-          check(entry).pipe(
-            Effect.catchCause((cause) =>
-              Effect.logWarning("snooze-wake-scripts.check-failed", {
-                threadId: entry.threadId,
-                cause,
-              }),
+          slots
+            .withPermits(1)(check(entry))
+            .pipe(
+              Effect.catchCause((cause) =>
+                Effect.logWarning("snooze-wake-scripts.check-failed", {
+                  threadId: entry.threadId,
+                  cause,
+                }),
+              ),
+              Effect.ensuring(Effect.sync(() => running.delete(entry.id))),
             ),
-            Effect.ensuring(Effect.sync(() => running.delete(entry.threadId))),
-          ),
         );
       }
     });
@@ -285,8 +295,9 @@ export const layer = Layer.effect(
       yield* update((all) => [
         ...all.filter((e) => e.threadId !== input.threadId),
         {
+          id: input.id,
           threadId: input.threadId,
-          snoozedUntilMs: Date.parse(input.snoozedUntil),
+          snoozedUntilMs: input.snoozedUntilMs,
           script: input.script,
           everyMs: input.everyMs,
           message: input.message,
@@ -296,6 +307,6 @@ export const layer = Layer.effect(
       ]);
     });
 
-    return SnoozeWakeScripts.of({ probe, arm, disarm: drop });
+    return SnoozeWakeScripts.of({ probe, arm, disarm });
   }),
 );
