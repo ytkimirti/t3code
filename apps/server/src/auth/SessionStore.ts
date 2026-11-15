@@ -425,7 +425,9 @@ export class SessionStore extends Context.Service<
 >()("t3/auth/SessionStore") {}
 
 const SIGNING_SECRET_NAME = "server-signing-key";
-const DEFAULT_SESSION_TTL = Duration.days(30);
+// fork: paired devices stay signed in; 30 days silently logged the Mac out of dev.
+// Revoke with `t3 auth session revoke`. Browsers clamp the cookie to ~400 days.
+const DEFAULT_SESSION_TTL = Duration.days(3650);
 const DEFAULT_WEBSOCKET_TOKEN_TTL = Duration.minutes(5);
 
 const SessionClaims = Schema.Struct({
