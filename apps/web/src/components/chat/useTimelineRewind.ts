@@ -125,13 +125,7 @@ export function useTimelineRewind(input: TimelineRewindInput) {
       return;
     }
     if (restoreFiles === undefined) {
-      openRevertConfirm(routeThreadKey, {
-        turnCount,
-        messageId,
-        chatOnly:
-          findRevertCheckpoint(serverProjection?.checkpoints ?? [], turnCount)?.status ===
-          "missing",
-      });
+      openRevertConfirm(routeThreadKey, { turnCount, messageId });
       return;
     }
 

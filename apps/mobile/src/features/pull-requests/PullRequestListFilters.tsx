@@ -41,12 +41,20 @@ function choices(field: string, options: Readonly<Record<string, string>>, selec
   }));
 }
 
-type ProjectOrder = readonly { readonly memberProjectRefs: readonly ScopedProjectRef[] }[];
+type ProjectOrder = readonly {
+  readonly memberProjectRefs: readonly ScopedProjectRef[];
+  readonly pinned: boolean;
+  readonly pinnedAt: string | null;
+  readonly archived: boolean;
+}[];
 const sameProjectOrder = (previous: ProjectOrder, next: ProjectOrder) =>
   previous.length === next.length &&
   previous.every((group, index) => {
     const members = next[index]!.memberProjectRefs;
     return (
+      group.pinned === next[index]!.pinned &&
+      group.pinnedAt === next[index]!.pinnedAt &&
+      group.archived === next[index]!.archived &&
       group.memberProjectRefs.length === members.length &&
       group.memberProjectRefs.every(
         (ref, member) =>
@@ -69,7 +77,12 @@ const sidebarProjectOrderFamily = Atom.family((mode: SidebarProjectGroupingMode)
       threads: get(environmentThreadShells.threadShellsAtom),
       pendingTasks: [],
       projectSortOrder: "updated_at",
-    }).map((scope) => ({ memberProjectRefs: scope.projectRefs })),
+    }).map((scope) => ({
+      memberProjectRefs: scope.projectRefs,
+      pinned: scope.pinned,
+      pinnedAt: scope.pinnedAt,
+      archived: scope.archived,
+    })),
   ).pipe(Atom.withEquality(sameProjectOrder)),
 );
 

@@ -6,7 +6,10 @@ import type { ThreadDetailsPanel as UpstreamThreadDetailsPanel } from "./ThreadD
 import { ThreadDetailsCard } from "./ThreadDetailsCard";
 import { ThreadDetailsPullRequestList } from "./ThreadDetailsPullRequestList";
 
-export function ThreadDetailsPanel(props: ComponentProps<typeof UpstreamThreadDetailsPanel>) {
+export function ThreadDetailsPanel(
+  props: ComponentProps<typeof UpstreamThreadDetailsPanel> & { readonly available: boolean },
+) {
+  if (!props.available) return null;
   const threadRef = { environmentId: props.environmentId, threadId: props.threadId };
   return (
     <ThreadDetailsCard
