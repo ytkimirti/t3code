@@ -1,24 +1,10 @@
-// Fork: the thread details card lists the thread's linked PRs instead of upstream's workspace,
-// git, scripts, and automations sections. This lives in its own file so upstream can keep
+// Fork: the thread details card is removed. This lives in its own file so upstream can keep
 // changing ThreadDetailsPanel.tsx without merge conflicts; ChatView imports this one instead.
 import type { ComponentProps } from "react";
 import type { ThreadDetailsPanel as UpstreamThreadDetailsPanel } from "./ThreadDetailsPanel";
-import { ThreadDetailsCard } from "./ThreadDetailsCard";
-import { ThreadDetailsPullRequestList } from "./ThreadDetailsPullRequestList";
 
 export function ThreadDetailsPanel(
-  props: ComponentProps<typeof UpstreamThreadDetailsPanel> & { readonly available: boolean },
+  _props: ComponentProps<typeof UpstreamThreadDetailsPanel> & { readonly available: boolean },
 ) {
-  if (!props.available) return null;
-  const threadRef = { environmentId: props.environmentId, threadId: props.threadId };
-  return (
-    <ThreadDetailsCard
-      threadRef={threadRef}
-      anchor={props.anchor}
-      handle={props.handle}
-      contentKey="pull-requests"
-    >
-      {() => <ThreadDetailsPullRequestList threadRef={threadRef} />}
-    </ThreadDetailsCard>
-  );
+  return null;
 }
