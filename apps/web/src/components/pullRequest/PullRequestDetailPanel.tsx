@@ -71,6 +71,7 @@ import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
 import { useLiveRefresh } from "~/hooks/useLiveRefresh";
 import { pullRequestEnvironment, usePullRequestTurnRefresh } from "~/state/pullRequests";
 import { useAtomCommand } from "~/state/use-atom-command";
+import { ForkPullRequestApproveButton } from "./ForkPullRequestApproveButton";
 import { PullRequestStackMenu } from "./PullRequestStackMenu";
 import { pullRequestCompletionScope } from "./PullRequestMarkdownTextarea";
 import { PullRequestChangeBreakdownStat } from "./PullRequestChangeBreakdownStat";
@@ -1466,6 +1467,17 @@ export function PullRequestDetailPanel({
                   }}
                 />
               ) : null}
+              <ForkPullRequestApproveButton
+                environmentId={environmentId}
+                reference={reference}
+                detail={detail}
+                term={terminology.singular}
+                disabled={actionPending}
+                onApproved={() => {
+                  refreshDetail();
+                  onActed?.();
+                }}
+              />
               <PullRequestPrimaryAction
                 mergeBlockedReason={mergeBlockedReason}
                 pullRequestKey={pullRequestKey}
