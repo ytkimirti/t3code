@@ -12980,5 +12980,9 @@
   "201490988858b511": "отозван: {by}",
   "99451a5d2d40440f": "Отозван: {by}.",
   "3ee30a50b70fffab": "Отозван ({by}): {reason}",
-  "92e129bf413a1220": "отозван"
+  "92e129bf413a1220": "отозван",
+  "fc7930e1fc6722ef": "How much color covers the blurred desktop behind the window. 0% shows only the blur.",
+  "54c96c53e5e5dda6": "Reset window tint to default",
+  "d41f82b0e626db76": "Window tint",
+  "a89e05b8e8a5c4e5": "translucent transparent blur vibrancy dark background desktop"
 }

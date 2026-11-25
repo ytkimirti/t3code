@@ -4,7 +4,6 @@
    everything else (overlays, controls, panels, other routes) keeps its own colors. */
 
 html.fork-vibrancy {
-  --fork-glass: 55%;
   --fork-tint: var(--color-zinc-25);
   background-color: transparent !important;
 }
@@ -33,5 +32,11 @@ html.fork-vibrancy
   main[data-slot="sidebar-inset"]
   [data-workspace-area="conversation"]
   > .bg-background {
+  background-color: transparent !important;
+}
+
+/* The strip under the composer keeps its blur, which hides messages scrolled beneath it,
+   but drops its fill so it matches the window instead of reading as a darker box. */
+html.fork-vibrancy main[data-slot="sidebar-inset"] [data-slot="composer-context-strip"] {
   background-color: transparent !important;
 }

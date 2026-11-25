@@ -367,6 +367,15 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("transparent transparency solid menus dialogs composer")],
   },
   {
+    // Fork: prefixed because the slider control already owns the `fork-window-tint` id.
+    id: "setting-fork-window-tint",
+    title: msg("Window tint"),
+    to: "/settings/appearance",
+    searchTerms: [msg("translucent transparent blur vibrancy dark background desktop")],
+    desktopOnly: true,
+    macOnly: true,
+  },
+  {
     id: "diff-color-scheme",
     title: msg("Diff colors"),
     to: "/settings/diffs",

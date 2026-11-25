@@ -12916,5 +12916,9 @@
   "201490988858b511": "{by} が取り下げ",
   "99451a5d2d40440f": "{by} が取り下げました。",
   "3ee30a50b70fffab": "{by} が取り下げました: {reason}",
-  "92e129bf413a1220": "取り下げ済み"
+  "92e129bf413a1220": "取り下げ済み",
+  "fc7930e1fc6722ef": "How much color covers the blurred desktop behind the window. 0% shows only the blur.",
+  "54c96c53e5e5dda6": "Reset window tint to default",
+  "d41f82b0e626db76": "Window tint",
+  "a89e05b8e8a5c4e5": "translucent transparent blur vibrancy dark background desktop"
 }

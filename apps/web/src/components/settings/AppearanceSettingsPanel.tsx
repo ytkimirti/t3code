@@ -35,6 +35,7 @@ import {
 } from "./settingsLayout";
 import { useSearchableSetting } from "./settingsSearch";
 import { AdvancedSettings } from "./AdvancedSettings";
+import { ForkWindowTintRow } from "./ForkWindowTintRow";
 import { PanelAnimationsPreview } from "./PanelAnimationsPreview";
 import { TypographySection } from "./TypographySettings";
 import { ThreadDetailsItemsRow } from "./ThreadDetailsItemsRow";
@@ -268,6 +269,8 @@ export function AppearanceSettingsPanel() {
             </div>
           }
         />
+
+        <ForkWindowTintRow />
 
         <SettingsRow
           {...searchableSetting("chat-width")}
