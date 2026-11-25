@@ -166,7 +166,7 @@ jobs:
     uses: ytkimirti/t3code/.github/workflows/release-desktop.yml@yusuf
     with:
       label: macOS arm64
-      runner: macos-15
+      runner: macos-26
       platform: mac
       target: dmg
       arch: arm64
@@ -207,7 +207,7 @@ jobs:
   sign:
     name: Sign macOS app
     needs: [sync, mac]
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 20
     steps:
       - uses: actions/download-artifact@v4
