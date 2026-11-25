@@ -1148,7 +1148,9 @@ export function toPullRequestCore(result: PullRequestCore.Result): GitHubPullReq
       ...toPullRequestViewerFields(pr),
       canMergeNow: IMMEDIATELY_MERGEABLE.has(pr.mergeStateStatus),
       mergeCapabilities: {
-        merge: repository.mergeCommitAllowed,
+        merge:
+          repository.mergeCommitAllowed &&
+          pr.baseRef?.refUpdateRule?.requiresLinearHistory !== true,
         squash: repository.squashMergeAllowed,
         rebase: repository.rebaseMergeAllowed,
       },

@@ -63,6 +63,7 @@ query PullRequestCore(
   $required: Boolean!
   $requestedReviewers: Int!
   $mergeQueue: Boolean!
+  $linearHistory: Boolean = true
 ) {
   repository(owner: $owner, name: $name) {
     mergeCommitAllowed
@@ -143,6 +144,11 @@ query PullRequestCore(
       baseRef {
         compare(headRef: $headRef) {
           behindBy
+        }
+        # Rulesets and branch protection requiring linear history reject merge commits even when
+        # the repository allows them. The always-true @include only makes the key optional to decode.
+        refUpdateRule @include(if: $linearHistory) {
+          requiresLinearHistory
         }
       }
       reviewRequests(first: $requestedReviewers) {

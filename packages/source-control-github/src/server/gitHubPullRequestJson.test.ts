@@ -444,6 +444,16 @@ describe("pull request detail decoding", () => {
     pullRequest?: Record<string, unknown>,
   ) => expectSuccess(decodePullRequestCoreJson(coreJson(rollup, pullRequest)));
 
+  it("withholds merge commits from a base branch that requires linear history", () => {
+    const linear = { baseRef: { compare: null, refUpdateRule: { requiresLinearHistory: true } } };
+    expect(detailOf([], linear)?.viewerAccess.mergeCapabilities).toEqual({
+      merge: false,
+      squash: true,
+      rebase: true,
+    });
+    expect(detailOf([])?.viewerAccess.mergeCapabilities.merge).toBe(true);
+  });
+
   it.each([
     [{}, true],
     [{ viewerDidAuthor: false }, false],
