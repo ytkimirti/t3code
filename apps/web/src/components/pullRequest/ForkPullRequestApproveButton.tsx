@@ -23,6 +23,7 @@ export function ForkPullRequestApproveButton({
   environmentId,
   reference,
   detail,
+  shownHeadSha,
   term,
   disabled,
   onApproved,
@@ -33,6 +34,8 @@ export function ForkPullRequestApproveButton({
     readonly comments: ReadonlyArray<PullRequestComment>;
     readonly commits: ReadonlyArray<PullRequestCommit>;
   };
+  /** The head commit on screen; the approval refuses if the PR moved past it. */
+  shownHeadSha: string | undefined;
   term: string;
   disabled: boolean;
   onApproved: () => void;
@@ -66,7 +69,13 @@ export function ForkPullRequestApproveButton({
     setPending(true);
     const result = await submitReview({
       environmentId,
-      input: { ...reference, verdict: "approve", body: "", comments: [] },
+      input: {
+        ...reference,
+        ...(shownHeadSha === undefined ? {} : { expectedHeadSha: shownHeadSha }),
+        verdict: "approve",
+        body: "",
+        comments: [],
+      },
     });
     setPending(false);
     if (result._tag === "Failure") {
