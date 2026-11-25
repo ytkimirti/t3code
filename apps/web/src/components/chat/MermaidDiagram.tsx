@@ -3,6 +3,7 @@ import type { DiagramType, MathResolver } from "pele/lazy";
 import { T, useGT, Var } from "gt-react";
 import { use, useState } from "react";
 
+import { forkSolidPageBackground } from "../../forkVibrancy";
 import { serializeCodeBlockToMarkdown } from "../../markdown-clipboard";
 import { Button } from "../ui/button";
 
@@ -212,7 +213,7 @@ function diagramImageUrl(svg: SVGSVGElement): string {
     if (value) element.style.setProperty(name, value);
   }
   element.style.maxWidth = "none";
-  element.style.backgroundColor = getComputedStyle(document.body).backgroundColor;
+  element.style.backgroundColor = forkSolidPageBackground();
   if (expandedImageUrl) URL.revokeObjectURL(expandedImageUrl);
   expandedImageUrl = URL.createObjectURL(
     new Blob([new XMLSerializer().serializeToString(element)], { type: "image/svg+xml" }),

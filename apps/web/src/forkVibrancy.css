@@ -1,0 +1,37 @@
+/* Fork: macOS desktop window vibrancy. The Electron window paints a native blurred
+   material behind the page (DesktopWindow.ts). The body carries the one tint (and the
+   grain); only the named layout containers below go clear, so tints never stack and
+   everything else (overlays, controls, panels, other routes) keeps its own colors. */
+
+html.fork-vibrancy {
+  --fork-glass: 55%;
+  --fork-tint: var(--color-zinc-25);
+  background-color: transparent !important;
+}
+
+html.fork-vibrancy.dark {
+  --fork-tint: #000;
+}
+
+html.fork-vibrancy[data-theme-id]:not([data-theme-id=""]) {
+  --fork-tint: var(--app-theme-canvas);
+}
+
+html.fork-vibrancy body {
+  background-color: color-mix(in srgb, var(--fork-tint) var(--fork-glass), transparent) !important;
+}
+
+html.fork-vibrancy :is(main[data-slot="sidebar-inset"], [data-slot="sidebar-inner"]) {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html.fork-vibrancy main[data-slot="sidebar-inset"] > .bg-background,
+html.fork-vibrancy main[data-slot="sidebar-inset"] [data-chat-header],
+html.fork-vibrancy main[data-slot="sidebar-inset"] [data-workspace-area="conversation"],
+html.fork-vibrancy
+  main[data-slot="sidebar-inset"]
+  [data-workspace-area="conversation"]
+  > .bg-background {
+  background-color: transparent !important;
+}
