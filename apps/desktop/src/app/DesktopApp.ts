@@ -20,6 +20,7 @@ import * as DesktopCliShim from "./DesktopCliShim.ts";
 import * as DesktopCliCommand from "./DesktopCliCommand.ts";
 import * as DesktopApplicationMenu from "../window/DesktopApplicationMenu.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
+import { forkStartUiOverlay } from "../window/forkUiOverlay.ts";
 import * as PreviewPasskeys from "../preview/Passkeys.ts";
 import * as DesktopBackendManager from "../backend/DesktopBackendManager.ts";
 import * as DesktopBackendPool from "../backend/DesktopBackendPool.ts";
@@ -208,6 +209,13 @@ const startLocalBackend = Effect.gen(function* () {
 
   const settings = yield* desktopSettings.get;
   const electronProtocol = yield* ElectronProtocol.ElectronProtocol;
+  if (environment.platform === "darwin" && environment.isPackaged && !environment.isDevelopment) {
+    forkStartUiOverlay({
+      baseDir: environment.baseDir,
+      appVersion: environment.appVersion,
+      desktopOrigin: ElectronProtocol.getDesktopOrigin(false),
+    });
+  }
   yield* electronProtocol.registerDesktopProtocol({
     scheme: ElectronProtocol.getDesktopScheme(environment.isDevelopment),
     ...(environment.isDevelopment

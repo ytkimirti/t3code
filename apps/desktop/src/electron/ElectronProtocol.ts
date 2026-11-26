@@ -12,6 +12,8 @@ import * as Scope from "effect/Scope";
 
 import * as Electron from "electron";
 
+import { forkClientAssetDirectory } from "../window/forkUiOverlay.ts";
+
 export const DESKTOP_HOST = "app";
 const DESKTOP_PRODUCTION_SCHEME = "t3code";
 const DESKTOP_DEVELOPMENT_SCHEME = "t3code-dev";
@@ -259,7 +261,9 @@ export const make = Effect.gen(function* () {
             Electron.protocol.handle(input.scheme, async (request) => {
               if ("assetDirectory" in input) {
                 return withContentSecurityPolicy(
-                  await runPromise(serveDesktopAsset(request, input.assetDirectory)),
+                  await runPromise(
+                    serveDesktopAsset(request, forkClientAssetDirectory(input.assetDirectory)),
+                  ),
                   contentSecurityPolicy,
                 );
               }
