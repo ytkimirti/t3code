@@ -252,8 +252,11 @@ export function buildSidebarProjectPickerEntries(input: {
 
     return [{ group, targetProject, isPreferred }];
   });
-  // The current project leads, even ahead of pinned projects.
+  // Fork: pinned projects never move, so their number shortcuts stay put; the
+  // current project leads only the unpinned ones.
   const preferred = entries.find((entry) => entry.isPreferred);
-  if (!preferred) return entries;
-  return [preferred, ...entries.filter((entry) => entry !== preferred)];
+  if (!preferred || preferred.group.pinned) return entries;
+  const rest = entries.filter((entry) => entry !== preferred);
+  const pinnedCount = rest.filter((entry) => entry.group.pinned).length;
+  return [...rest.slice(0, pinnedCount), preferred, ...rest.slice(pinnedCount)];
 }

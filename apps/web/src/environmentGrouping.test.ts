@@ -319,7 +319,7 @@ describe("environment grouping", () => {
     });
   });
 
-  it("puts the preferred project before pinned projects", () => {
+  it("puts the preferred project after pinned projects", () => {
     const project = (title: string, pinnedAt: string | null = null) =>
       makeProject({
         id: ProjectId.make(title),
@@ -339,6 +339,29 @@ describe("environment grouping", () => {
       groups: pickableProjectGroups(groups),
       preferredProjectRef: { environmentId: current.environmentId, projectId: current.id },
     });
-    expect(entries.map((entry) => entry.group.displayName)).toEqual(["current", "pinned", "other"]);
+    expect(entries.map((entry) => entry.group.displayName)).toEqual(["pinned", "current", "other"]);
+  });
+
+  it("keeps a pinned current project in its pinned place", () => {
+    const project = (title: string, pinnedAt: string | null = null) =>
+      makeProject({
+        id: ProjectId.make(title),
+        title,
+        workspaceRoot: `/tmp/${title}`,
+        repositoryIdentity: null,
+        pinnedAt,
+      });
+    const current = project("second", "2026-01-02T00:00:00.000Z");
+    const groups = buildSidebarProjectSnapshots({
+      projects: [project("other"), current, project("first", "2026-01-01T00:00:00.000Z")],
+      settings: defaultGroupingSettings,
+      primaryEnvironmentId,
+      resolveEnvironmentLabel: () => null,
+    });
+    const entries = buildSidebarProjectPickerEntries({
+      groups: pickableProjectGroups(groups),
+      preferredProjectRef: { environmentId: current.environmentId, projectId: current.id },
+    });
+    expect(entries.map((entry) => entry.group.displayName)).toEqual(["first", "second", "other"]);
   });
 });
