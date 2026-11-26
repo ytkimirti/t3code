@@ -110,6 +110,10 @@ import { configuredHostedAppUrl } from "../hostedPairing";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
 import { SidebarFolderDrop } from "./sidebar/SidebarFolderDrop";
 import {
+  resolveUsualEnvironmentId,
+  resolveUsualProviderInstanceId,
+} from "./sidebar/forkUsualThreadContext";
+import {
   pickableProjectGroups,
   selectProjectGroupingSettings,
 } from "@t3tools/client-runtime/state/project-grouping";
@@ -1145,6 +1149,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           ),
         );
   const threads = useQuietThreadShells();
+  const usualEnvironmentId = resolveUsualEnvironmentId(threads);
+  const usualProviderInstanceId = resolveUsualProviderInstanceId(threads);
   const promotingDraftThreadKeys = usePromotingDraftThreadKeys();
   const listedThreads =
     promotingDraftThreadKeys.length === 0
@@ -3635,6 +3641,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             environmentLabel={
                               environmentLabelById.get(thread.environmentId) ?? null
                             }
+                            usualEnvironmentId={usualEnvironmentId}
+                            usualProviderInstanceId={usualProviderInstanceId}
                             environmentMachine={
                               environmentMachineById.get(thread.environmentId) ?? "server"
                             }

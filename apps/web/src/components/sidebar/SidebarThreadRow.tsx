@@ -140,6 +140,7 @@ import { useThreadHasUnsentDraft } from "../../composerDraftStore";
 import { ThreadDetailsIssueRows } from "../chat/ThreadDetailsIssueRows";
 import { IssueGlyph, issueStatePresentation } from "../issue/issuePresentation";
 import { useThreadIntentPrefetch } from "./useThreadIntentPrefetch";
+import { isUsualProvider } from "./forkUsualThreadContext";
 
 // The fields thread rows show. Provider status pushes refresh `checkedAt`,
 // status and auth on every provider; leaving those out keeps each
@@ -628,6 +629,8 @@ type SidebarThreadRowProps = {
   jumpLabel: string | null;
   environmentLabel: string | null;
   environmentMachine: EnvironmentMachineKind;
+  usualEnvironmentId: string | null;
+  usualProviderInstanceId: string | null;
   project: EnvironmentProject | null;
   projectDisplayName: string | null;
   providerEntryByInstanceId: ReadonlyMap<string, SidebarProviderEntry>;
@@ -1274,23 +1277,31 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   ) : null;
 
   const diff = latestRunDiff(thread);
+  const metaEnvironmentLabel =
+    thread.environmentId === props.usualEnvironmentId ? null : props.environmentLabel;
+  const providerStack = isUsualProvider(thread, props.usualProviderInstanceId) ? null : (
+    <SidebarProviderStack
+      thread={thread}
+      providerEntryByInstanceId={props.providerEntryByInstanceId}
+    />
+  );
   // Only the trailing icons would remain, so the row moves them to the title line instead.
   const metaLineEmpty =
-    props.environmentLabel === null &&
+    metaEnvironmentLabel === null &&
     prBadge === null &&
     issueBadge === null &&
     diff === null &&
     runningTerminalIds.length === 0;
   const metaLine = metaLineEmpty ? null : (
     <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
-      {props.environmentLabel !== null ? (
+      {metaEnvironmentLabel !== null ? (
         <>
           <EnvironmentMachineIcon
             aria-hidden
             kind={props.environmentMachine}
             className="size-3.5 shrink-0 text-icon-muted"
           />
-          <span className="min-w-0 flex-1 truncate">{props.environmentLabel}</span>
+          <span className="min-w-0 flex-1 truncate">{metaEnvironmentLabel}</span>
         </>
       ) : (
         <span className="flex-1" />
@@ -1308,21 +1319,16 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         aria-hidden
         className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
       >
-        <SidebarProviderStack
-          thread={thread}
-          providerEntryByInstanceId={props.providerEntryByInstanceId}
-        />
+        {providerStack}
       </span>
     </div>
   );
-  const titleLineIcons = metaLineEmpty ? (
-    <span aria-hidden className="inline-flex shrink-0 items-center gap-1">
-      <SidebarProviderStack
-        thread={thread}
-        providerEntryByInstanceId={props.providerEntryByInstanceId}
-      />
-    </span>
-  ) : null;
+  const titleLineIcons =
+    metaLineEmpty && providerStack !== null ? (
+      <span aria-hidden className="inline-flex shrink-0 items-center gap-1">
+        {providerStack}
+      </span>
+    ) : null;
 
   if (variant !== "card") {
     const multiline = variant === "folder-multiline";
